@@ -23,7 +23,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from PyQt6.QtWidgets import (QApplication, QWidget, QMenu, QColorDialog, 
                             QMessageBox, QInputDialog, QVBoxLayout, QLabel,
                             QPushButton, QHBoxLayout, QDialog, QTextEdit,
-                            QListWidget, QListWidgetItem)
+                            QListWidget, QListWidgetItem, QScrollArea, QGridLayout)
 from PyQt6.QtCore import Qt, QTimer, QPoint, QPointF, QRectF, pyqtSignal, QObject
 from PyQt6.QtGui import (QPainter, QPainterPath, QRadialGradient, QLinearGradient, 
                         QColor, QFont, QPen, QBrush, QFontMetrics)
@@ -34,11 +34,15 @@ import speech_recognition as sr
 from dotenv import load_dotenv
 
 # --- Tool Integration ---
+from langchain.tools import tool as langchain_tool
+
 def create_dummy_tool(tool_name):
     """Create a dummy tool that explains it's not available"""
-    def dummy_func(*args, **kwargs):
+    @langchain_tool
+    def dummy_func(*args, **kwargs) -> str:
         return f"⚠️ **{tool_name} not available**\nPlease check if the tool is properly installed in the tools directory."
     dummy_func.__name__ = tool_name
+    dummy_func.name = tool_name
     return dummy_func
 
 # Load all tools with error handling
@@ -53,12 +57,12 @@ except ImportError as e:
     get_time = create_dummy_tool("get_time")
 
 try:
-    from tools.OCR import read_text_from_latest_image, read_image_file, ocr_to_file, read_screen_area
+    from tools.OCR import read_text_from_latest_image, read_text_from_image_file, ocr_to_file, read_screen_area
     print("✅ OCR tools loaded")
 except ImportError as e:
     print(f"⚠️ OCR: {e}")
     read_text_from_latest_image = create_dummy_tool("read_text_from_latest_image")
-    read_image_file = create_dummy_tool("read_image_file")
+    read_text_from_image_file = create_dummy_tool("read_text_from_image_file")
     ocr_to_file = create_dummy_tool("ocr_to_file")
     read_screen_area = create_dummy_tool("read_screen_area")
 
@@ -97,23 +101,26 @@ except ImportError as e:
 try:
     from tools.pc_control import (
         open_notepad_with_context, list_notes, quick_note,
-        open_application, close_application,
         list_running_apps, execute_command,
         system_info, create_file_smart, test_note_creation
     )
+    # Import new app launcher tools
+    from tools.app_launcher import open_app, close_app, rescan_apps, list_installed_apps
     print("✅ pc_control tools loaded")
 except ImportError as e:
     print(f"⚠️ pc_control: {e}")
     open_notepad_with_context = create_dummy_tool("open_notepad_with_context")
     list_notes = create_dummy_tool("list_notes")
     quick_note = create_dummy_tool("quick_note")
-    open_application = create_dummy_tool("open_application")
-    close_application = create_dummy_tool("close_application")
+    open_app = create_dummy_tool("open_app")
+    close_app = create_dummy_tool("close_app")
     list_running_apps = create_dummy_tool("list_running_apps")
     execute_command = create_dummy_tool("execute_command")
     system_info = create_dummy_tool("system_info")
     create_file_smart = create_dummy_tool("create_file_smart")
     test_note_creation = create_dummy_tool("test_note_creation")
+    rescan_apps = create_dummy_tool("rescan_apps")
+    list_installed_apps = create_dummy_tool("list_installed_apps")
 
 # Automation tools
 try:
@@ -365,12 +372,12 @@ llm = ChatOllama(
 tools = [
     # Core PC Control
     open_notepad_with_context, quick_note, list_notes, test_note_creation,
-    open_application, close_application, list_running_apps,
-    execute_command, system_info, create_file_smart,
+    open_app, close_app, rescan_apps, list_installed_apps,
+    list_running_apps, execute_command, system_info, create_file_smart,
     
     # Screenshot & OCR
     take_screenshot, screenshot_all_monitors, annotate_screenshot, screenshot_window,
-    read_text_from_latest_image, read_image_file, ocr_to_file, read_screen_area,
+    read_text_from_latest_image, read_text_from_image_file, ocr_to_file, read_screen_area,
     
     # Automation
     type_text, press_key, copy_to_clipboard, paste_from_clipboard,
@@ -400,7 +407,7 @@ prompt = ChatPromptTemplate.from_messages([
 You have access to 60+ powerful tools for complete system control:
 
 📁 **File Management**: Search, organize, zip, copy, rename, delete files
-🖥️ **System Control**: Open/close apps, run commands, monitor resources
+🖥️ **System Control**: Open/close ANY app (auto-scans PC), run commands, monitor resources
 ⌨️ **Automation**: Type text, click mouse, keyboard shortcuts, window management
 📸 **Screenshots & OCR**: Capture screens, read text from images
 🌐 **Network**: Check connections, speed tests, network info, kill processes
@@ -408,22 +415,30 @@ You have access to 60+ powerful tools for complete system control:
 🔐 **Security**: Lock computer, manage processes, system monitoring
 📊 **Information**: Battery status, system info, time zones, web search
 
+**IMPORTANT - APP CONTROL:**
+- You can open/close ANY application installed on the PC
+- The system automatically scans Windows for all installed apps
+- Use 'open_app' for opening and 'close_app' for closing
+- If an app can't be found, suggest using 'rescan_apps'
+- Apps like Discord, Steam, Spotify, etc. are all supported
+
 **CONVERSATION STYLE:**
 - Be natural, friendly, and efficient like a personal butler
 - Use "sir" occasionally but not excessively
 - Respond conversationally for simple queries
 - Use appropriate tools when user requests specific actions
 - Keep responses concise but informative
+- When using tools, don't read out all the formatted output - summarize briefly
 
 **EXAMPLES:**
 User: "hello" → "Hello sir! How may I assist you today?"
-User: "what can you do?" → List your key capabilities
-User: "open chrome" → USE open_application tool
+User: "what can you do?" → List your key capabilities briefly
+User: "open chrome" → USE open_app tool
+User: "open discord" → USE open_app tool  
+User: "close spotify" → USE close_app tool
 User: "type hello world" → USE type_text tool
 User: "take screenshot" → USE take_screenshot tool
 User: "find all python files" → USE search_files tool
-User: "what's my IP?" → USE get_network_info tool
-User: "set volume to 50" → USE control_volume tool
 
 Be smart, capable, and ACTUALLY HELPFUL!
 
@@ -504,7 +519,6 @@ class JarvisOrb(QWidget):
         super().__init__()
         self.memory_manager = memory_manager
         self.status_text = "🚀 Initializing..."
-        self.speech_paused = False
         
         # Orb properties
         self.pulse_phase = 0
@@ -530,6 +544,7 @@ class JarvisOrb(QWidget):
         
         # Make draggable
         self.dragging = False
+        self.drag_started = False
         self.offset = QPoint()
     
     def update_animation(self):
@@ -557,17 +572,10 @@ class JarvisOrb(QWidget):
         
         self.update()
     
-    def pause_speech(self):
-        global speech_paused
-        speech_paused = True
-        self.speech_paused = True
-        self.set_status("⏸️ Speech Paused")
-    
-    def resume_speech(self):
-        global speech_paused
-        speech_paused = False
-        self.speech_paused = False
-        self.set_status("▶️ Speech Resumed")
+    def stop_speaking(self):
+        """Stop current speech output"""
+        stop_speech()
+        self.set_status("🔇 Stopped")
     
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -605,18 +613,23 @@ class JarvisOrb(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.dragging = True
+            self.drag_started = False
             self.offset = event.pos()
-            # Pause speech when clicked
-            self.pause_speech()
         elif event.button() == Qt.MouseButton.RightButton:
             self.show_menu(event.globalPosition().toPoint())
     
     def mouseMoveEvent(self, event):
         if self.dragging:
+            self.drag_started = True
             self.move(self.pos() + event.pos() - self.offset)
     
     def mouseReleaseEvent(self, event):
-        self.dragging = False
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Only stop speech if we didn't drag
+            if not self.drag_started:
+                self.stop_speaking()
+            self.dragging = False
+            self.drag_started = False
     
     def show_menu(self, pos):
         menu = QMenu()
@@ -700,60 +713,251 @@ Tools Loaded: {len(tools)}
             self.update()
     
     def show_tools(self):
-        tools_text = """🛠️ JARVIS TOOL CAPABILITIES:
-
-📁 FILE MANAGEMENT:
-• Search, organize, zip, copy, rename files
-• Create and extract archives
-
-🖥️ SYSTEM CONTROL:
-• Open/close applications
-• Execute commands
-• Monitor system resources
-
-⌨️ AUTOMATION:
-• Type text automatically
-• Control mouse and keyboard
-• Window management
-
-📸 SCREENSHOTS & OCR:
-• Capture screens
-• Read text from images
-• Annotate screenshots
-
-🌐 NETWORK:
-• Network information
-• Speed tests
-• Connection monitoring
-
-🔊 MEDIA & AUDIO:
-• Volume control
-• Record audio
-• Text-to-speech files
-
-🔐 SECURITY:
-• Lock computer
-• Kill processes
-• Battery monitoring
-
-And 40+ more tools!"""
+        """Show interactive tool browser with clickable tools"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("JARVIS Tools Browser")
+        dialog.setMinimumSize(700, 600)
         
-        QMessageBox.information(self, "Jarvis Tools", tools_text)
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("🛠️ JARVIS TOOL CAPABILITIES")
+        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        
+        # Create scrollable area
+        from PyQt6.QtWidgets import QScrollArea, QGridLayout
+        
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_content = QWidget()
+        grid = QGridLayout(scroll_content)
+        
+        # Define all tools by category with their actual tool names
+        tool_categories = {
+            "📁 FILE MANAGEMENT": [
+                ("Search Files", "search_files", "Find files by pattern"),
+                ("Organize Files", "organize_files", "Auto-organize by type"),
+                ("Create ZIP", "create_zip", "Create archive"),
+                ("Extract ZIP", "extract_zip", "Extract archive"),
+                ("Delete File", "delete_file", "Remove files"),
+                ("Rename File", "rename_file", "Rename files"),
+                ("Copy File", "copy_file", "Copy files"),
+                ("File Info", "get_file_info", "Get file details"),
+            ],
+            "🖥️ SYSTEM CONTROL": [
+                ("Open App", "open_app", "Open any application"),
+                ("Close App", "close_app", "Close application"),
+                ("Rescan Apps", "rescan_apps", "Scan PC for apps"),
+                ("List Apps", "list_installed_apps", "Show all apps"),
+                ("Running Apps", "list_running_apps", "List processes"),
+                ("Execute Command", "execute_command", "Run command"),
+                ("System Info", "system_info", "System stats"),
+            ],
+            "⌨️ AUTOMATION": [
+                ("Type Text", "type_text", "Automated typing"),
+                ("Press Key", "press_key", "Keyboard shortcuts"),
+                ("Click Mouse", "click_mouse", "Mouse clicks"),
+                ("Move Mouse", "move_mouse", "Cursor movement"),
+                ("Mouse Position", "get_mouse_position", "Get position"),
+                ("Scroll Screen", "scroll_screen", "Scroll control"),
+                ("Copy Clipboard", "copy_to_clipboard", "Copy text"),
+                ("Paste Clipboard", "paste_from_clipboard", "Get clipboard"),
+                ("Minimize Windows", "minimize_all_windows", "Show desktop"),
+                ("Switch Window", "switch_window", "Alt+Tab"),
+                ("Lock Computer", "lock_computer", "Lock system"),
+                ("Screen Size", "get_screen_size", "Display info"),
+            ],
+            "📸 SCREENSHOTS & OCR": [
+                ("Screenshot", "take_screenshot", "Capture screen"),
+                ("All Monitors", "screenshot_all_monitors", "All screens"),
+                ("Annotate Screenshot", "annotate_screenshot", "With timestamp"),
+                ("Window Screenshot", "screenshot_window", "Active window"),
+                ("Read Screenshot", "read_text_from_latest_image", "OCR latest"),
+                ("Read Image", "read_text_from_image_file", "OCR any image"),
+                ("OCR to File", "ocr_to_file", "Save OCR text"),
+                ("Read Screen Area", "read_screen_area", "Region OCR"),
+            ],
+            "🌐 NETWORK": [
+                ("Network Info", "get_network_info", "Network details"),
+                ("Speed Test", "network_speed_test", "Test speed"),
+                ("Connections", "list_connections", "Active connections"),
+                ("System Resources", "monitor_system_resources", "CPU/RAM/Disk"),
+                ("List Processes", "list_processes", "Running processes"),
+                ("Kill Process", "kill_process", "Terminate process"),
+                ("Battery Status", "get_battery_status", "Battery info"),
+            ],
+            "🔊 MEDIA & AUDIO": [
+                ("Control Volume", "control_volume", "Volume control"),
+                ("Play Sound", "play_sound", "System sounds"),
+                ("Open URL", "open_url", "Open browser"),
+                ("Take Picture", "take_picture", "Webcam capture"),
+                ("Record Audio", "record_audio", "Mic recording"),
+                ("Text-to-Speech File", "text_to_speech_file", "TTS file"),
+                ("Clipboard History", "get_clipboard_history", "Windows clipboard"),
+            ],
+            "📝 NOTES": [
+                ("Quick Note", "quick_note", "Fast note"),
+                ("Open Notepad", "open_notepad_with_context", "Contextual note"),
+                ("List Notes", "list_notes", "View all notes"),
+                ("Create File", "create_file_smart", "Smart file creation"),
+            ],
+            "🔧 UTILITIES": [
+                ("Get Time", "get_time", "World time zones"),
+                ("Web Search", "duckduckgo_search_tool", "Search web"),
+                ("Matrix Mode", "matrix_mode", "Matrix effect"),
+                ("ARP Scan", "arp_scan_terminal", "Network scan"),
+            ],
+        }
+        
+        row = 0
+        for category, tools_list in tool_categories.items():
+            # Category header
+            category_label = QLabel(category)
+            category_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+            category_label.setStyleSheet("color: #0096FF; padding: 5px;")
+            grid.addWidget(category_label, row, 0, 1, 3)
+            row += 1
+            
+            # Tools in this category
+            for i, (tool_name, tool_func, tool_desc) in enumerate(tools_list):
+                btn = QPushButton(f"🔹 {tool_name}")
+                btn.setToolTip(tool_desc)
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #2b2b2b;
+                        color: white;
+                        border: 1px solid #0096FF;
+                        border-radius: 5px;
+                        padding: 8px;
+                        text-align: left;
+                        font-size: 10pt;
+                    }
+                    QPushButton:hover {
+                        background-color: #0096FF;
+                        border: 1px solid white;
+                    }
+                    QPushButton:pressed {
+                        background-color: #0066CC;
+                    }
+                """)
+                
+                # Connect button to execute tool
+                btn.clicked.connect(lambda checked, t=tool_func, n=tool_name: self.execute_tool(t, n, dialog))
+                
+                # Arrange in 3 columns
+                col = i % 3
+                tool_row = row + (i // 3)
+                grid.addWidget(btn, tool_row, col)
+            
+            row += ((len(tools_list) - 1) // 3) + 2
+        
+        scroll.setWidget(scroll_content)
+        layout.addWidget(scroll)
+        
+        # Info label
+        info_label = QLabel(f"💡 Click any tool to use it | Total: {sum(len(t) for t in tool_categories.values())} tools available")
+        info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        info_label.setStyleSheet("color: gray; padding: 5px;")
+        layout.addWidget(info_label)
+        
+        # Close button
+        close_btn = QPushButton("✖️ Close")
+        close_btn.clicked.connect(dialog.close)
+        layout.addWidget(close_btn)
+        
+        dialog.setLayout(layout)
+        dialog.exec()
+    
+    def execute_tool(self, tool_name: str, display_name: str, parent_dialog: QDialog):
+        """Execute a tool when its button is clicked"""
+        try:
+            # Tools that need parameters - show input dialog
+            tools_need_input = {
+                "search_files": "Enter search pattern (e.g., *.pdf):",
+                "organize_files": "Enter directory path:",
+                "create_zip": "Enter source directory:",
+                "extract_zip": "Enter ZIP file path:",
+                "delete_file": "Enter file path to delete:",
+                "rename_file": "Enter old file path:",
+                "copy_file": "Enter source file path:",
+                "get_file_info": "Enter file path:",
+                "open_app": "Enter application name:",
+                "close_app": "Enter application name:",
+                "list_installed_apps": "Enter search term (or leave empty):",
+                "execute_command": "Enter command to execute:",
+                "type_text": "Enter text to type:",
+                "press_key": "Enter key combination (e.g., ctrl+c):",
+                "click_mouse": "Enter coordinates (e.g., 500,300):",
+                "move_mouse": "Enter coordinates (e.g., 500,300):",
+                "scroll_screen": "Enter amount to scroll:",
+                "copy_to_clipboard": "Enter text to copy:",
+                "read_text_from_image_file": "Enter image file path:",
+                "ocr_to_file": "Enter image file path:",
+                "read_screen_area": "Enter x,y,width,height:",
+                "quick_note": "Enter note content:",
+                "open_notepad_with_context": "Enter note context/content:",
+                "control_volume": "Enter action (set/up/down/mute/unmute) and level:",
+                "open_url": "Enter URL:",
+                "record_audio": "Enter duration in seconds:",
+                "text_to_speech_file": "Enter text to convert:",
+                "get_time": "Enter city name:",
+                "duckduckgo_search_tool": "Enter search query:",
+                "kill_process": "Enter process name or PID:",
+            }
+            
+            # If tool needs input, show dialog
+            if tool_name in tools_need_input:
+                text, ok = QInputDialog.getText(parent_dialog, f"Execute {display_name}", 
+                                               tools_need_input[tool_name])
+                if not ok or not text:
+                    return
+                
+                # Build voice command
+                command = f"{display_name} {text}"
+            else:
+                # No input needed
+                command = display_name
+            
+            # Close the dialog
+            parent_dialog.close()
+            
+            # Show executing status
+            self.set_status(f"🔧 Executing: {display_name}...")
+            
+            # Process the command through JARVIS
+            try:
+                ai_response = process_jarvis_command(command, self)
+                memory_manager.add_message("user", command)
+                memory_manager.add_message("assistant", ai_response)
+                
+                # Show result in message box
+                QMessageBox.information(self, f"✅ {display_name}", 
+                                      f"{ai_response[:500]}..." if len(ai_response) > 500 else ai_response)
+            except Exception as e:
+                QMessageBox.warning(self, "⚠️ Error", f"Failed to execute tool:\n{str(e)}")
+            
+            self.set_status("✅ Ready")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "❌ Error", f"Error executing tool:\n{str(e)}")
 
 # ============================================================================
 # TEXT-TO-SPEECH WITH CLEANUP
 # ============================================================================
 
+speech_engine = None
+speech_active = False
+
 def speak_text(text: str, orb: JarvisOrb = None):
-    global speech_paused
-    
-    if speech_paused:
-        return
+    global speech_engine, speech_active
     
     try:
-        engine = pyttsx3.init()
-        engine.setProperty('rate', 180)
-        engine.setProperty('volume', 0.9)
+        speech_active = True
+        speech_engine = pyttsx3.init()
+        speech_engine.setProperty('rate', 180)
+        speech_engine.setProperty('volume', 0.9)
         
         # Clean text
         clean_text = text
@@ -767,23 +971,35 @@ def speak_text(text: str, orb: JarvisOrb = None):
         else:
             speak_text_content = clean_text
         
-        engine.say(speak_text_content)
-        engine.runAndWait()
+        speech_engine.say(speak_text_content)
+        speech_engine.runAndWait()
+        speech_active = False
         
-        if orb and not orb.speech_paused:
+        if orb:
             orb.set_status("👂 Listening...")
             
     except Exception as e:
         logging.error(f"TTS Error: {e}")
+        speech_active = False
         if orb:
             orb.set_status("⚠️ TTS Error")
+
+def stop_speech():
+    """Stop the current speech immediately"""
+    global speech_engine, speech_active
+    try:
+        if speech_engine and speech_active:
+            speech_engine.stop()
+            speech_active = False
+    except:
+        pass
 
 # ============================================================================
 # MAIN JARVIS ENGINE
 # ============================================================================
 
 def run_jarvis_engine(orb: JarvisOrb):
-    global speech_active, speech_paused
+    global speech_active
     
     recognizer = sr.Recognizer()
     mic = sr.Microphone()
@@ -797,10 +1013,6 @@ def run_jarvis_engine(orb: JarvisOrb):
         
         while True:
             try:
-                if speech_paused:
-                    time.sleep(0.5)
-                    continue
-                
                 if conversation_mode and (time.time() - last_interaction > CONVERSATION_TIMEOUT):
                     conversation_mode = False
                     orb.set_status("💤 Standby")
@@ -811,13 +1023,6 @@ def run_jarvis_engine(orb: JarvisOrb):
                 logging.info(f"🎤 Detected: {text}")
                 
                 orb.set_status("🔍 Processing...")
-                
-                if "keep going" in text or "continue" in text or "resume" in text:
-                    orb.resume_speech()
-                    speak_text("Resuming speech.", orb)
-                    conversation_mode = True
-                    last_interaction = time.time()
-                    continue
                 
                 if TRIGGER_WORD in text or conversation_mode:
                     orb.set_status("🤔 Analyzing...")
