@@ -13,6 +13,8 @@ pyaudio>=0.2.13
 
 # GUI
 PyQt6>=6.6.0
+PyQt6-Qt6>=6.6.0
+PyQt6-sip>=13.6.0
 
 # System Tools
 psutil>=5.9.0
@@ -25,11 +27,26 @@ pyperclip>=1.8.2
 # OCR
 pytesseract>=0.3.10
 opencv-python>=4.8.0
+opencv-python-headless>=4.8.0  # Alternative without GUI
 
 # Web & Search
 duckduckgo-search>=3.9.0
 requests>=2.31.0
+beautifulsoup4>=4.12.0
 
 # Utilities
 python-dotenv>=1.0.0
 comtypes>=1.2.0  # For Windows TTS
+pywin32>=306      # Windows API access
+WMI>=1.5.1        # Windows Management Instrumentation
+
+# Networking
+scapy>=2.5.0      # For ARP scanning
+
+# Audio/Video
+sounddevice>=0.4.6  # Audio recording
+screeninfo>=0.8.1   # Multi-monitor support
+
+# Additional dependencies from your code
+importlib-metadata>=6.0.0
+setuptools>=65.5.0
