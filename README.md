@@ -84,6 +84,12 @@ JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete sys
 - Multiple AI model support
 
 ## 🚀 Quick Installation (Windows)
+### **Just exe**
+1. Download `JARVIS.exe` from [Releases](https://limewire.com/d/mhmNj#a3RuJrQemi)
+2. Download the tools folder and Req file and add them to path of exe
+3. open cmd and cd to your path of exe then do ollama serve
+4. cd to path of exe in new tab and do ollama pull qwen2.5:7b
+5. Launch JARVIS from file 
 
 ### **Option 1: Easy Installer (Recommended)**
 1. Download `JARVIS_AI_Setup.exe` from [Releases](https://limewire.com/d/SYWfW#1Hv9kLWmyM)
