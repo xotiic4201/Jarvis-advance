@@ -10,6 +10,13 @@ from typing import List, Dict, Optional
 import random
 import math
 import re
+import socket
+import warnings
+import webbrowser
+import subprocess
+import psutil
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # --- LangChain & AI Memory ---
 from langchain_ollama import ChatOllama
@@ -23,10 +30,11 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from PyQt6.QtWidgets import (QApplication, QWidget, QMenu, QColorDialog, 
                             QMessageBox, QInputDialog, QVBoxLayout, QLabel,
                             QPushButton, QHBoxLayout, QDialog, QTextEdit,
-                            QListWidget, QListWidgetItem, QScrollArea, QGridLayout)
+                            QListWidget, QListWidgetItem, QScrollArea, QGridLayout,
+                            QLineEdit)
 from PyQt6.QtCore import Qt, QTimer, QPoint, QPointF, QRectF, pyqtSignal, QObject
 from PyQt6.QtGui import (QPainter, QPainterPath, QRadialGradient, QLinearGradient, 
-                        QColor, QFont, QPen, QBrush, QFontMetrics)
+                        QColor, QFont, QPen, QBrush, QFontMetrics, QIcon, QKeyEvent)
 
 # --- Speech & TTS ---
 import pyttsx3
@@ -35,6 +43,251 @@ from dotenv import load_dotenv
 
 # --- Tool Integration ---
 from langchain.tools import tool as langchain_tool
+
+# ============================================================================
+# OLLAMA AUTO-DETECTION AND SETUP
+# ============================================================================
+
+def check_ollama_connection():
+    """
+    Check if Ollama is running and accessible
+    Returns: (bool, str) - (is_connected, status_message)
+    """
+    print("\n🔍 Checking Ollama connection...")
+    
+    def is_ollama_installed():
+        """Check if Ollama is installed"""
+        try:
+            # Try to run ollama --version
+            result = subprocess.run(['ollama', '--version'], 
+                                  capture_output=True, text=True, timeout=5,
+                                  creationflags=subprocess.CREATE_NO_WINDOW)
+            return result.returncode == 0
+        except:
+            return False
+    
+    def is_ollama_running():
+        """Check if Ollama process is running"""
+        for proc in psutil.process_iter(['name']):
+            if proc.info['name'] and 'ollama' in proc.info['name'].lower():
+                return True
+        return False
+    
+    def can_connect_to_ollama():
+        """Check if we can connect to Ollama API"""
+        try:
+            socket.create_connection(('localhost', 11434), timeout=3)
+            return True
+        except:
+            return False
+    
+    def start_ollama():
+        """Start Ollama service"""
+        print("🚀 Starting Ollama service...")
+        try:
+            # Start Ollama in background
+            subprocess.Popen(['ollama', 'serve'], 
+                           creationflags=subprocess.CREATE_NO_WINDOW,
+                           stdout=subprocess.DEVNULL, 
+                           stderr=subprocess.DEVNULL)
+            
+            # Wait for service to start
+            for _ in range(15):
+                time.sleep(1)
+                if can_connect_to_ollama():
+                    return True
+            return False
+        except Exception as e:
+            print(f"❌ Failed to start Ollama: {e}")
+            return False
+    
+    # Check installation
+    if not is_ollama_installed():
+        print("❌ Ollama is not installed!")
+        print("\n📥 To enable AI features, please install Ollama:")
+        print("   1. Download from: https://ollama.ai")
+        print("   2. Run the installer")
+        print("   3. Open terminal and run: ollama pull qwen2.5:7b")
+        print("   4. Restart JARVIS")
+        
+        # Ask user if they want to open browser
+        response = input("\nOpen browser to download Ollama? (y/n): ")
+        if response.lower() == 'y':
+            webbrowser.open('https://ollama.ai')
+        
+        return False, "Ollama not installed"
+    
+    # Check if running
+    if not is_ollama_running():
+        print("⚡ Ollama not running, attempting to start...")
+        if not start_ollama():
+            print("❌ Could not start Ollama service")
+            print("\n💡 Please manually start Ollama:")
+            print("   - Open terminal and run: ollama serve")
+            print("   - Wait for it to start, then restart JARVIS")
+            return False, "Ollama service not running"
+    
+    # Check connection
+    if not can_connect_to_ollama():
+        print("❌ Cannot connect to Ollama API")
+        print("\n💡 Troubleshooting steps:")
+        print("   1. Make sure Ollama is running: ollama serve")
+        print("   2. Check if port 11434 is available")
+        print("   3. Restart Ollama service")
+        return False, "Cannot connect to Ollama"
+    
+    print("✅ Ollama is connected and ready!")
+    return True, "Ollama connected"
+
+def check_ollama_model():
+    """
+    Check if required model exists
+    Returns: (bool, str) - (model_exists, status_message)
+    """
+    try:
+        result = subprocess.run(['ollama', 'list'], 
+                              capture_output=True, text=True, timeout=10,
+                              creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        if result.returncode != 0:
+            return False, "Cannot check models"
+        
+        output = result.stdout.lower()
+        
+        # Check for various model names
+        model_names = ['qwen2.5', 'llama', 'mistral', 'codellama', 'phi']
+        for model in model_names:
+            if model in output:
+                return True, f"Found model: {model}"
+        
+        return False, "No suitable model found"
+        
+    except Exception as e:
+        return False, f"Error checking models: {str(e)}"
+
+def setup_ollama_automatically():
+    """
+    Try to set up Ollama automatically for EXE users
+    """
+    print("\n" + "="*60)
+    print("🤖 JARVIS AI - Ollama Setup Assistant")
+    print("="*60)
+    
+    # Check connection
+    connected, msg = check_ollama_connection()
+    
+    if not connected:
+        print(f"\n⚠️ {msg}")
+        print("\n📋 JARVIS will run in BASIC MODE")
+        print("   You can still use all non-AI features:")
+        print("   - File management")
+        print("   - Screenshots")
+        print("   - Automation tools")
+        print("   - System control")
+        print("   - And more...")
+        print("\n💡 To enable AI features, install Ollama from https://ollama.ai")
+        return False
+    
+    # Check model
+    model_exists, model_msg = check_ollama_model()
+    
+    if not model_exists:
+        print(f"\n📦 {model_msg}")
+        response = input("\nDownload qwen2.5:7b model (4GB)? (y/n): ")
+        
+        if response.lower() == 'y':
+            print("\n⏬ Downloading AI model... This may take 5-15 minutes...")
+            print("   Download speed depends on your internet connection.")
+            print("   Please wait...\n")
+            
+            try:
+                process = subprocess.Popen(['ollama', 'pull', 'qwen2.5:7b'],
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT,
+                                          text=True,
+                                          creationflags=subprocess.CREATE_NO_WINDOW,
+                                          bufsize=1,
+                                          universal_newlines=True)
+                
+                # Show progress
+                for line in process.stdout:
+                    line = line.strip()
+                    if line:
+                        print(f"   {line}")
+                
+                process.wait()
+                
+                if process.returncode == 0:
+                    print("\n✅ Model downloaded successfully!")
+                    return True
+                else:
+                    print("\n⚠️ Model download had issues")
+                    print("   You can manually run: ollama pull qwen2.5:7b")
+                    return False
+                    
+            except Exception as e:
+                print(f"\n❌ Download failed: {e}")
+                print("   You can manually run: ollama pull qwen2.5:7b")
+                return False
+        else:
+            print("\n⚠️ Running without AI model")
+            print("   You can download later with: ollama pull qwen2.5:7b")
+            return False
+    
+    print(f"\n✅ {model_msg}")
+    return True
+
+# ============================================================================
+# BASIC COMMAND HANDLER (for when AI is not available)
+# ============================================================================
+
+def handle_basic_command(command: str) -> str:
+    """Handle basic commands when AI is not available"""
+    command_lower = command.lower()
+    
+    # Simple command matching
+    if any(word in command_lower for word in ['hello', 'hi', 'hey']):
+        return "Hello! I'm running in basic mode. Install Ollama from https://ollama.ai for full AI features."
+    
+    elif 'screenshot' in command_lower:
+        return "I can take screenshots! Use the tools menu or say 'take screenshot' specifically."
+    
+    elif 'time' in command_lower:
+        from datetime import datetime
+        return f"The current time is {datetime.now().strftime('%H:%M:%S')}"
+    
+    elif any(word in command_lower for word in ['open', 'launch']):
+        # Extract app name
+        words = command_lower.split()
+        for i, word in enumerate(words):
+            if word in ['open', 'launch'] and i + 1 < len(words):
+                app_name = words[i + 1]
+                return f"To open {app_name}, please use the tools menu or say 'open {app_name}' clearly."
+    
+    elif 'help' in command_lower or 'what can you do' in command_lower:
+        return """I can help with:
+• File management (search, organize, copy, delete files)
+• Screenshots (full screen, windows, annotated)
+• System control (open apps, run commands, check resources)
+• Automation (type text, control mouse, keyboard shortcuts)
+• And much more!
+
+Right-click the orb and select 'Show Tools' to see all options.
+Install Ollama for AI features: https://ollama.ai"""
+    
+    elif 'note' in command_lower or 'notepad' in command_lower:
+        return "I can create notes! Use the tools menu or say 'open notepad' specifically."
+    
+    elif 'volume' in command_lower:
+        return "I can control volume! Use the tools menu or say 'set volume to 50'."
+    
+    elif 'type' in command_lower:
+        return "I can type text! Use the tools menu or say 'type Hello World'."
+    
+    elif 'click' in command_lower and 'mouse' in command_lower:
+        return "I can control the mouse! Use the tools menu for precise control."
+    
+    return "I'm in basic mode. For AI conversation, please install Ollama from https://ollama.ai"
 
 def create_dummy_tool(tool_name):
     """Create a dummy tool that explains it's not available"""
@@ -432,11 +685,11 @@ memory_manager = AdvancedMemoryManager()
 # Global variables for model management
 current_model = "qwen2.5:7b"
 available_models = []
+ai_mode_enabled = False  # Track if AI mode is available
 
 def get_ollama_models():
     """Get list of installed Ollama models"""
     try:
-        import subprocess
         result = subprocess.run(['ollama', 'list'], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             lines = result.stdout.strip().split('\n')[1:]  # Skip header
@@ -454,46 +707,68 @@ def get_ollama_models():
 
 def initialize_llm(model_name=None):
     """Initialize or reinitialize the LLM with specified model"""
-    global llm, executor, executor_with_history, current_model
+    global llm, executor, executor_with_history, current_model, ai_mode_enabled
     
     if model_name:
         current_model = model_name
     
-    llm = ChatOllama(
-        model=current_model,
-        temperature=0,
-        num_predict=512,
-        top_p=0.9
-    )
-    
-    # Recreate the agent with new LLM
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
-    
-    # Recreate executor with history
-    executor_with_history = RunnableWithMessageHistory(
-        executor,
-        lambda session_id: memory_manager.get_message_history(session_id),
-        input_messages_key="input",
-        history_messages_key="chat_history",
-    )
-    
-    logging.info(f"🤖 LLM initialized with model: {current_model}")
-    return llm
+    try:
+        llm = ChatOllama(
+            model=current_model,
+            temperature=0,
+            num_predict=512,
+            top_p=0.9
+        )
+        
+        # Recreate the agent with new LLM
+        agent = create_tool_calling_agent(llm, tools, prompt)
+        executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
+        
+        # Recreate executor with history
+        executor_with_history = RunnableWithMessageHistory(
+            executor,
+            lambda session_id: memory_manager.get_message_history(session_id),
+            input_messages_key="input",
+            history_messages_key="chat_history",
+        )
+        
+        ai_mode_enabled = True
+        logging.info(f"🤖 LLM initialized with model: {current_model}")
+        return llm
+    except Exception as e:
+        logging.error(f"Failed to initialize LLM: {e}")
+        ai_mode_enabled = False
+        return None
+
+# Check Ollama on startup
+ai_mode_enabled = setup_ollama_automatically()
 
 # Get available models on startup
-available_models = get_ollama_models()
-if available_models:
-    logging.info(f"📦 Found {len(available_models)} Ollama models: {', '.join(available_models)}")
-else:
-    logging.warning("⚠️ No Ollama models found or Ollama not running")
+if ai_mode_enabled:
+    available_models = get_ollama_models()
+    if available_models:
+        logging.info(f"📦 Found {len(available_models)} Ollama models: {', '.join(available_models)}")
+    else:
+        logging.warning("⚠️ No Ollama models found")
 
-llm = ChatOllama(
-    model=current_model,
-    temperature=0,
-    num_predict=512,
-    top_p=0.9
-)
+# Initialize LLM only if AI mode is enabled
+llm = None
+agent_executor = None
+executor_with_history = None
+
+if ai_mode_enabled:
+    try:
+        llm = ChatOllama(
+            model=current_model,
+            temperature=0,
+            num_predict=512,
+            top_p=0.9
+        )
+        print(f"✅ AI Model: {current_model} - Ready!")
+    except Exception as e:
+        print(f"⚠️ AI Model error: {e}")
+        print("⚠️ Running in basic mode (AI features disabled)")
+        ai_mode_enabled = False
 
 # Complete tool list with ALL advanced capabilities
 tools = [
@@ -575,15 +850,20 @@ Current chat: {recent_history}"""),
     MessagesPlaceholder(variable_name="agent_scratchpad"),
 ])
 
-agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
-agent_executor = AgentExecutor(
-    agent=agent, 
-    tools=tools, 
-    verbose=True, 
-    max_iterations=3,
-    handle_parsing_errors=True,
-    return_intermediate_steps=False
-)
+# Initialize agent only if AI mode is enabled
+if ai_mode_enabled and llm:
+    agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
+    agent_executor = AgentExecutor(
+        agent=agent, 
+        tools=tools, 
+        verbose=True, 
+        max_iterations=3,
+        handle_parsing_errors=True,
+        return_intermediate_steps=False
+    )
+else:
+    agent_executor = None
+    print("⚠️ AI Mode: Disabled - Running in Basic Mode")
 
 # LangChain memory
 memory_store = {}
@@ -601,12 +881,16 @@ def get_session_history(session_id: str):
     
     return memory_store[session_id]
 
-executor_with_history = RunnableWithMessageHistory(
-    agent_executor,
-    get_session_history,
-    input_messages_key="input",
-    history_messages_key="chat_history",
-)
+# Initialize executor with history only if AI mode is enabled
+if ai_mode_enabled and agent_executor:
+    executor_with_history = RunnableWithMessageHistory(
+        agent_executor,
+        get_session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history",
+    )
+else:
+    executor_with_history = None
 
 # ============================================================================
 # ENHANCED RESPONSE HANDLER
@@ -615,6 +899,10 @@ executor_with_history = RunnableWithMessageHistory(
 def process_jarvis_command(user_input: str, orb) -> str:
     """Process command through AI with context"""
     try:
+        # If AI mode is disabled, use basic command handler
+        if not ai_mode_enabled or executor_with_history is None:
+            return handle_basic_command(user_input)
+        
         if not memory_manager.current_session:
             memory_manager.create_session(user_input)
         
@@ -638,14 +926,331 @@ def process_jarvis_command(user_input: str, orb) -> str:
         return f"I encountered an issue, sir: {str(e)}"
 
 # ============================================================================
-# HYPERREALISTIC ORB UI (ENHANCED)
+# COOL INTERACTIVE CHAT UI WITH THREAD-SAFE UPDATES
+# ============================================================================
+
+class ChatUI(QWidget):
+    """Modern interactive chat interface"""
+    message_sent = pyqtSignal(str)  # Signal when user sends a message
+    add_message_signal = pyqtSignal(str, str, bool)  # Signal to add message from other threads
+    
+    def __init__(self, memory_manager):
+        super().__init__()
+        self.memory_manager = memory_manager
+        self.setup_ui()
+        
+        # Connect signals to slots
+        self.add_message_signal.connect(self.add_message_safe)
+        
+    def setup_ui(self):
+        self.setWindowTitle("💬 JARVIS Chat")
+        self.setGeometry(400, 200, 800, 600)
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0a192f;
+                color: #e6f1ff;
+                font-family: 'Segoe UI', Arial, sans-serif;
+            }
+            QTextEdit, QListWidget {
+                background-color: #112240;
+                border: 2px solid #1e3a5f;
+                border-radius: 10px;
+                padding: 10px;
+                color: #ccd6f6;
+                font-size: 13px;
+            }
+            QPushButton {
+                background-color: #64ffda;
+                color: #0a192f;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 20px;
+                font-weight: bold;
+                font-size: 13px;
+                margin: 5px;
+            }
+            QPushButton:hover {
+                background-color: #7bffe1;
+            }
+            QPushButton:pressed {
+                background-color: #52e0c4;
+            }
+            QLineEdit {
+                background-color: #112240;
+                border: 2px solid #1e3a5f;
+                border-radius: 20px;
+                padding: 12px 20px;
+                color: #e6f1ff;
+                font-size: 14px;
+                selection-background-color: #64ffda;
+            }
+            QLabel {
+                color: #64ffda;
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+            }
+        """)
+        
+        layout = QVBoxLayout()
+        
+        # Header with gradient
+        header = QLabel("🤖 JARVIS INTERACTIVE CHAT")
+        header.setStyleSheet("""
+            QLabel {
+                font-size: 22px;
+                font-weight: bold;
+                color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #64ffda, stop:0.5 #7bffe1, stop:1 #52e0c4);
+                padding: 15px;
+                text-align: center;
+                background-color: rgba(17, 34, 64, 0.8);
+                border-radius: 12px;
+                margin-bottom: 10px;
+            }
+        """)
+        header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(header)
+        
+        # Chat area with message bubbles
+        self.chat_area = QTextEdit()
+        self.chat_area.setReadOnly(True)
+        self.chat_area.setMaximumHeight(400)
+        self.chat_area.setHtml("""
+            <div style='text-align: center; color: #64ffda; font-size: 12px; padding: 20px;'>
+                <b>✨ JARVIS Chat Interface Ready</b><br>
+                Type your message below...
+            </div>
+        """)
+        layout.addWidget(self.chat_area)
+        
+        # Quick action buttons
+        quick_actions = QHBoxLayout()
+        
+        action_buttons = [
+            ("🤔 Ask Anything", "What can you do for me?"),
+            ("💡 Idea", "Give me a creative project idea"),
+            ("⚡ Quick Task", "Take a screenshot"),
+            ("📊 System", "Show system info")
+        ]
+        
+        for text, command in action_buttons:
+            btn = QPushButton(text)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda checked, cmd=command: self.send_quick_command(cmd))
+            quick_actions.addWidget(btn)
+        
+        layout.addLayout(quick_actions)
+        
+        # Input area
+        input_layout = QHBoxLayout()
+        
+        self.message_input = QLineEdit()
+        self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)")
+        self.message_input.returnPressed.connect(self.send_message)
+        input_layout.addWidget(self.message_input)
+        
+        send_btn = QPushButton("🚀 Send")
+        send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        send_btn.clicked.connect(self.send_message)
+        input_layout.addWidget(send_btn)
+        
+        layout.addLayout(input_layout)
+        
+        # Bottom toolbar
+        toolbar = QHBoxLayout()
+        
+        clear_btn = QPushButton("🗑️ Clear Chat")
+        clear_btn.clicked.connect(self.clear_chat)
+        toolbar.addWidget(clear_btn)
+        
+        export_btn = QPushButton("💾 Export Chat")
+        export_btn.clicked.connect(self.export_chat)
+        toolbar.addWidget(export_btn)
+        
+        voice_btn = QPushButton("🎤 Voice Input")
+        voice_btn.clicked.connect(self.start_voice_input)
+        toolbar.addWidget(voice_btn)
+        
+        close_btn = QPushButton("✖️ Close")
+        close_btn.clicked.connect(self.close)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #ff5252;
+            }
+        """)
+        toolbar.addWidget(close_btn)
+        
+        layout.addLayout(toolbar)
+        self.setLayout(layout)
+        
+        # Load existing chat history
+        self.load_chat_history()
+    
+    def add_message_safe(self, sender: str, message: str, is_user: bool = True):
+        """Thread-safe version of add_message"""
+        self.add_message(sender, message, is_user)
+    
+    def add_message(self, sender: str, message: str, is_user: bool = True):
+        """Add a message to chat with cool styling"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        
+        if is_user:
+            bubble_color = "#1e3a5f"
+            text_color = "#e6f1ff"
+            align = "right"
+            sender_name = "👤 You"
+        else:
+            bubble_color = "#0f2d5c"
+            text_color = "#64ffda"
+            align = "left"
+            sender_name = "🤖 JARVIS"
+        
+        # Replace newlines with HTML line breaks BEFORE using in f-string
+        message_with_breaks = message.replace('\n', '<br>')
+        
+        # Build HTML without the problematic transform property
+        message_html = (
+            f"<div style='margin: 15px 0; text-align: {align};'>"
+            f"<div style='"
+            f"display: inline-block;"
+            f"max-width: 70%;"
+            f"background-color: {bubble_color};"
+            f"border-radius: 18px;"
+            f"padding: 12px 18px;"
+            f"box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);"
+            f"border: 1px solid rgba(100, 255, 218, 0.1);"
+            f"'>"
+            f"<div style='font-size: 10px; color: #8892b0; margin-bottom: 5px;'>"
+            f"{sender_name} • {timestamp}"
+            f"</div>"
+            f"<div style='color: {text_color}; font-size: 14px; line-height: 1.4;'>"
+            f"{message_with_breaks}"
+            f"</div>"
+            f"</div>"
+            f"</div>"
+        )
+        
+        # Get current HTML and append new message
+        current_html = self.chat_area.toHtml()
+        if "JARVIS Chat Interface Ready" in current_html:
+            self.chat_area.setHtml(message_html)
+        else:
+            self.chat_area.setHtml(current_html + message_html)
+        
+        # Scroll to bottom
+        scrollbar = self.chat_area.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+    
+    def send_message(self):
+        """Send message from input box"""
+        message = self.message_input.text().strip()
+        if message:
+            self.add_message("You", message, is_user=True)
+            self.message_sent.emit(message)
+            self.message_input.clear()
+    
+    def send_quick_command(self, command: str):
+        """Send a quick command from button"""
+        self.message_input.setText(command)
+        self.send_message()
+    
+    def receive_message(self, message: str):
+        """Display message from JARVIS"""
+        self.add_message("JARVIS", message, is_user=False)
+    
+    def clear_chat(self):
+        """Clear chat history"""
+        reply = QMessageBox.question(self, 'Clear Chat', 
+                                    'Are you sure you want to clear the chat?',
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.chat_area.setHtml("""
+                <div style='text-align: center; color: #64ffda; font-size: 12px; padding: 20px;'>
+                    <b>✨ Chat cleared</b><br>
+                    Start a new conversation...
+                </div>
+            """)
+    
+    def export_chat(self):
+        """Export chat to text file"""
+        from datetime import datetime
+        filename = f"chat_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        
+        # Get plain text from chat
+        chat_text = self.chat_area.toPlainText()
+        
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(f"JARVIS Chat Export - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("="*50 + "\n\n")
+                f.write(chat_text)
+            
+            QMessageBox.information(self, "✅ Success", 
+                                  f"Chat exported to:\n{filename}")
+        except Exception as e:
+            QMessageBox.warning(self, "❌ Error", f"Failed to export chat:\n{str(e)}")
+    
+    def start_voice_input(self):
+        """Start voice input"""
+        # Simple voice input using speech recognition
+        import speech_recognition as sr
+        
+        try:
+            recognizer = sr.Recognizer()
+            with sr.Microphone() as source:
+                # Show listening status
+                self.message_input.setPlaceholderText("🎤 Listening... Speak now")
+                QApplication.processEvents()
+                
+                audio = recognizer.listen(source, timeout=5)
+                text = recognizer.recognize_google(audio)
+                self.message_input.setText(text)
+                self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)")
+        except sr.WaitTimeoutError:
+            self.message_input.setPlaceholderText("⏰ No speech detected")
+            QTimer.singleShot(2000, lambda: self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)"))
+        except Exception as e:
+            QMessageBox.warning(self, "Voice Input Error", 
+                              f"Could not process voice input:\n{str(e)}")
+            self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)")
+    
+    def load_chat_history(self):
+        """Load recent chat history"""
+        if self.memory_manager.current_session:
+            messages = self.memory_manager.get_recent_messages(10)
+            for msg in messages:
+                is_user = msg["role"] == "user"
+                self.add_message(msg["role"], msg["content"], is_user=is_user)
+
+# ============================================================================
+# HYPERREALISTIC ORB UI WITH TASKBAR ICON
 # ============================================================================
 
 class JarvisOrb(QWidget):
+    # Add a signal for thread-safe chat updates
+    update_chat_signal = pyqtSignal(str, str)
+    
     def __init__(self, memory_manager):
         super().__init__()
         self.memory_manager = memory_manager
         self.status_text = "🚀 Initializing..."
+        self.chat_window = None
+        
+        # Connect the signal
+        self.update_chat_signal.connect(self.add_conversation_to_chat)
+        
+        # Set window icon for taskbar
+        try:
+            self.setWindowIcon(QIcon("icon.ico"))
+        except:
+            # Create a simple icon if file doesn't exist
+            self.setWindowIcon(self.create_default_icon())
         
         # Orb properties
         self.pulse_phase = 0
@@ -664,7 +1269,7 @@ class JarvisOrb(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setGeometry(100, 100, 300, 300)
-        self.setWindowTitle("JARVIS")
+        self.setWindowTitle("JARVIS AI")
         
         # Animation timer
         self.timer = QTimer()
@@ -675,6 +1280,34 @@ class JarvisOrb(QWidget):
         self.dragging = False
         self.drag_started = False
         self.offset = QPoint()
+    
+    def create_default_icon(self):
+        """Create a default icon if icon.ico doesn't exist"""
+        from PyQt6.QtGui import QPixmap, QPainter
+        pixmap = QPixmap(32, 32)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QBrush(QColor(0, 150, 255)))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(4, 4, 24, 24)
+        painter.end()
+        return QIcon(pixmap)
+    
+    def add_conversation_to_chat(self, user_message: str, ai_response: str):
+        """Thread-safe method to add conversation to chat"""
+        # Add to memory manager
+        if memory_manager.current_session:
+            memory_manager.add_message("user", user_message)
+            memory_manager.add_message("assistant", ai_response)
+        
+        # Add to chat UI if open (using thread-safe signal)
+        if self.chat_window and self.chat_window.isVisible():
+            self.chat_window.add_message_signal.emit("You", user_message, True)
+            self.chat_window.add_message_signal.emit("JARVIS", ai_response, False)
+        
+        # Log the conversation
+        logging.info(f"💬 Conversation: User: {user_message[:50]}... -> AI: {ai_response[:50]}...")
     
     def update_animation(self):
         self.pulse_phase += self.pulse_speed
@@ -695,6 +1328,9 @@ class JarvisOrb(QWidget):
         elif "processing" in status.lower() or "🔍" in status:
             self.core_color = QColor(255, 200, 50)
             self.glow_color = QColor(255, 220, 100)
+        elif "basic" in status.lower():
+            self.core_color = QColor(150, 150, 150)
+            self.glow_color = QColor(200, 200, 200)
         else:
             self.core_color = QColor(0, 150, 255)
             self.glow_color = QColor(100, 200, 255)
@@ -705,7 +1341,7 @@ class JarvisOrb(QWidget):
         """Stop current speech output"""
         stop_speech()
         self.set_status("🔇 Speech Stopped")
-        QTimer.singleShot(1000, lambda: self.set_status("👂 Listening..."))
+        QTimer.singleShot(1000, lambda: self.set_status("👂 Listening..." if ai_mode_enabled else "🛠️ Basic Mode"))
     
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -792,20 +1428,72 @@ class JarvisOrb(QWidget):
             self.dragging = False
             self.drag_started = False
     
+    def keyPressEvent(self, event):
+        """Handle keyboard shortcuts"""
+        if event.key() == Qt.Key.Key_C and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.show_chat_ui()
+        elif event.key() == Qt.Key.Key_Escape:
+            if self.chat_window and self.chat_window.isVisible():
+                self.chat_window.close()
+        else:
+            super().keyPressEvent(event)
+    
     def show_menu(self, pos):
         menu = QMenu()
+        
+        # Add chat UI option
+        menu.addAction("💬 Open Chat UI", self.show_chat_ui)
+        
+        # Show AI status in menu
+        if ai_mode_enabled:
+            menu.addAction(f"🤖 AI Mode: Enabled ({current_model})")
+        else:
+            ai_action = menu.addAction("⚠️ AI Mode: Disabled")
+            ai_action.setEnabled(False)
+            menu.addAction("📥 Install Ollama", lambda: webbrowser.open('https://ollama.ai'))
+        
+        menu.addSeparator()
         menu.addAction("⚙️ Settings", lambda: self.show_settings_dialog())
         menu.addAction("📊 System Info", lambda: self.show_info())
-        menu.addAction("🤖 Change AI Model", lambda: self.show_model_selector())
+        
+        if ai_mode_enabled:
+            menu.addAction("🤖 Change AI Model", lambda: self.show_model_selector())
+        
         menu.addAction("💾 Memory Manager", lambda: self.show_memory_dialog())
         menu.addAction("🎨 Change Color", lambda: self.change_color())
         menu.addAction("📋 Show Tools", lambda: self.show_tools())
+        menu.addSeparator()
         menu.addAction("❌ Exit", self.close)
         menu.exec(pos)
     
+    def show_chat_ui(self):
+        """Show interactive chat window"""
+        if not self.chat_window:
+            self.chat_window = ChatUI(self.memory_manager)
+            self.chat_window.message_sent.connect(self.handle_chat_message)
+        
+        # Connect chat window to JARVIS responses
+        if not hasattr(self, 'chat_connected'):
+            self.chat_window.receive_message("Hello! I'm ready to chat. How can I help you?")
+            self.chat_connected = True
+        
+        self.chat_window.show()
+        self.chat_window.raise_()
+        self.chat_window.activateWindow()
+    
+    def handle_chat_message(self, message: str):
+        """Handle message from chat UI"""
+        # Process through JARVIS
+        response = process_jarvis_command(message, self)
+        
+        # Add to chat and speak (using thread-safe method)
+        self.add_conversation_to_chat(message, response)
+        
+        # Speak the response
+        speak_text(response, self)
+    
     def show_info(self):
         import platform
-        import psutil
         
         cpu = psutil.cpu_percent()
         mem = psutil.virtual_memory().percent
@@ -815,7 +1503,8 @@ class JarvisOrb(QWidget):
 {'='*40}
 Platform: {platform.system()} {platform.release()}
 Python: {platform.python_version()}
-AI Model: {current_model}
+AI Mode: {'✅ Enabled' if ai_mode_enabled else '⚠️ Disabled'}
+Model: {current_model if ai_mode_enabled else 'Not available'}
 CPU Usage: {cpu}%
 Memory: {mem}%
 Sessions: {len(self.memory_manager.conversations)}
@@ -827,6 +1516,11 @@ Tools Loaded: {len(tools)}
     def show_model_selector(self):
         """Show dialog to select Ollama model"""
         global available_models, current_model
+        
+        if not ai_mode_enabled:
+            QMessageBox.warning(self, "AI Disabled", 
+                              "AI mode is disabled. Please install Ollama first.")
+            return
         
         # Refresh models list
         self.set_status("🔄 Scanning models...")
@@ -1442,7 +2136,7 @@ def speak_text(text: str, orb: JarvisOrb = None):
         time.sleep(0.2)
         
         if orb:
-            orb.set_status("👂 Listening...")
+            orb.set_status("👂 Listening..." if ai_mode_enabled else "🛠️ Basic Mode")
             
     except Exception as e:
         print(f"❌ TTS Error: {e}")
@@ -1470,7 +2164,7 @@ def stop_speech():
         speech_paused = False
 
 # ============================================================================
-# MAIN JARVIS ENGINE
+# MAIN JARVIS ENGINE WITH CHAT INTEGRATION
 # ============================================================================
 
 def run_jarvis_engine(orb: JarvisOrb):
@@ -1492,15 +2186,33 @@ def run_jarvis_engine(orb: JarvisOrb):
     
     with mic as source:
         recognizer.adjust_for_ambient_noise(source, duration=1)
-        orb.set_status("✅ Online")
-        speak_text("Jarvis AI advanced system ready. Say 'Jarvis' to begin.", orb)
+        
+        # Set status based on AI availability
+        if ai_mode_enabled:
+            orb.set_status("✅ Online (AI Mode)")
+            welcome_msg = "Jarvis AI advanced system ready. Say 'Jarvis' to begin."
+            speak_text(welcome_msg, orb)
+            
+            # Add welcome to chat (thread-safe)
+            if orb.chat_window and orb.chat_window.isVisible():
+                orb.chat_window.add_message_signal.emit("JARVIS", welcome_msg, False)
+        else:
+            orb.set_status("🛠️ Basic Mode")
+            welcome_msg = "Jarvis basic mode active. Install Ollama for AI features. Say 'Jarvis' to begin."
+            speak_text(welcome_msg, orb)
+            
+            # Add welcome to chat (thread-safe)
+            if orb.chat_window and orb.chat_window.isVisible():
+                orb.chat_window.add_message_signal.emit("JARVIS", welcome_msg, False)
         
         while True:
             try:
                 if conversation_mode and (time.time() - last_interaction > CONVERSATION_TIMEOUT):
                     conversation_mode = False
                     orb.set_status("💤 Standby")
-                    speak_text("Returning to standby.", orb)
+                    standby_msg = "Returning to standby."
+                    speak_text(standby_msg, orb)
+                    orb.update_chat_signal.emit("[Timeout]", standby_msg)
                 
                 print("👂 Listening for audio...")
                 audio = recognizer.listen(source, timeout=5, phrase_time_limit=8)
@@ -1519,22 +2231,24 @@ def run_jarvis_engine(orb: JarvisOrb):
                     if not text and not conversation_mode:
                         response = "Yes sir? How can I help?"
                         speak_text(response, orb)
-                        memory_manager.add_message("user", "jarvis")
-                        memory_manager.add_message("assistant", response)
-                        orb.set_status("👂 Listening...")
+                        
+                        # Add to chat (thread-safe)
+                        orb.update_chat_signal.emit("Jarvis", response)
+                        
+                        orb.set_status("👂 Listening..." if ai_mode_enabled else "🛠️ Basic Mode")
                         conversation_mode = True
                         last_interaction = time.time()
                         continue
                     
                     if not text and conversation_mode:
-                        orb.set_status("👂 Listening...")
+                        orb.set_status("👂 Listening..." if ai_mode_enabled else "🛠️ Basic Mode")
                         continue
                     
                     command = text
-                    memory_manager.add_message("user", command)
-                    
                     ai_response = process_jarvis_command(command, orb)
-                    memory_manager.add_message("assistant", ai_response)
+                    
+                    # Add to chat and speak (thread-safe)
+                    orb.update_chat_signal.emit(command, ai_response)
                     
                     orb.set_status("🗣️ Responding...")
                     logging.info(f"🤖 Response: {ai_response[:100]}...")
@@ -1543,18 +2257,18 @@ def run_jarvis_engine(orb: JarvisOrb):
                     
                     conversation_mode = True
                     last_interaction = time.time()
-                    orb.set_status("👂 Listening...")
+                    orb.set_status("👂 Listening..." if ai_mode_enabled else "🛠️ Basic Mode")
                 
             except sr.WaitTimeoutError:
                 continue
             except sr.UnknownValueError:
-                orb.set_status("👂 Listening...")
+                orb.set_status("👂 Listening..." if ai_mode_enabled else "🛠️ Basic Mode")
                 continue
             except Exception as e:
                 logging.error(f"Engine Error: {e}")
                 orb.set_status("⚠️ Error")
                 time.sleep(1)
-                orb.set_status("👂 Listening...")
+                orb.set_status("👂 Listening..." if ai_mode_enabled else "🛠️ Basic Mode")
                 continue
 
 # ============================================================================
@@ -1570,9 +2284,18 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     
+    # Set high DPI awareness for Windows
+    if sys.platform == "win32":
+        try:
+            from ctypes import windll
+            windll.shcore.SetProcessDpiAwareness(1)
+        except:
+            pass
+    
     orb = JarvisOrb(memory_manager)
     orb.show()
     
+    # Start engine in a separate thread
     engine_thread = threading.Thread(target=run_jarvis_engine, args=(orb,), daemon=True)
     engine_thread.start()
     
@@ -1583,7 +2306,7 @@ if __name__ == "__main__":
     
     save_timer = QTimer()
     save_timer.timeout.connect(auto_save)
-    save_timer.start(300000)
+    save_timer.start(300000)  # 5 minutes
     
     # Exit handler
     def on_exit():
@@ -1602,15 +2325,19 @@ if __name__ == "__main__":
     print("   • Volume control, screenshots, process management")
     print("   • Mouse & keyboard automation, clipboard control")
     print("   • Advanced memory system with conversation history")
-    print("   • Hyperrealistic orb interface")
+    print("   • Hyperrealistic orb interface with taskbar icon")
+    print("   • Cool interactive chat UI (Ctrl+C to open)")
     print("="*70)
-    print(f"🤖 AI Model: {current_model}")
-    print(f"📦 Available Models: {len(available_models)} ({', '.join(available_models[:3])}{'...' if len(available_models) > 3 else ''})")
+    print(f"🤖 AI Mode: {'✅ ENABLED' if ai_mode_enabled else '⚠️ DISABLED (Install Ollama)'}")
+    if ai_mode_enabled:
+        print(f"📦 AI Model: {current_model}")
+        print(f"📦 Available Models: {len(available_models)} ({', '.join(available_models[:3])}{'...' if len(available_models) > 3 else ''})")
     print(f"🔧 Loaded {len(tools)} tools successfully!")
-    print("💡 Say 'Jarvis' followed by your command")
+    print("💡 SAY COMMANDS:")
+    print("   • 'Jarvis' followed by your command")
     print("   • Click orb to pause speech")
-    print("   • Right-click for menu → Change AI Model")
-    print("   • Say 'keep going' to resume")
+    print("   • Right-click for menu")
+    print("   • Ctrl+C to open chat interface")
     print("="*70 + "\n")
     
     sys.exit(app.exec())
