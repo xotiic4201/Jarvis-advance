@@ -283,7 +283,6 @@ Jarvis-advance/
 ├── setup.py               # Setup script
 ├── README.md              # This file
 ├── icon.ico               # Application icon
-├── LICENSE.txt            # License file
 ├── tools/                 # 60+ tools
 │   ├── pc_control.py     # PC control tools
 │   ├── app_launcher.py   # Application launcher
@@ -293,9 +292,7 @@ Jarvis-advance/
 │   ├── screenshot.py     # Screenshots
 │   ├── media_tools.py    # Media control
 │   ├── OCR.py           # OCR functionality
-│   └── ...               # More tools
-├── dist/                  # Built executables
-└── Output/               # Installer output
+└── 
 ```
 
 ## 📄 License
