@@ -317,7 +317,7 @@ We welcome contributions! Here's how:
 
 - **Issues**: [GitHub Issues](https://github.com/xotiic4201/Jarvis-advance/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/xotiic4201/Jarvis-advance/discussions)
-- **Discord**: [Server](https://github.com/xotiic4201/Jarvis-advance/wiki](https://discord.gg/SVvZFnct37 )
+- **Discord**: [Join](https://discord.gg/SVvZFnct37)
 
 
 ---
