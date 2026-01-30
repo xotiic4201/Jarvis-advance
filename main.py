@@ -36,6 +36,11 @@ from PyQt6.QtCore import Qt, QTimer, QPoint, QPointF, QRectF, pyqtSignal, QObjec
 from PyQt6.QtGui import (QPainter, QPainterPath, QRadialGradient, QLinearGradient, 
                         QColor, QFont, QPen, QBrush, QFontMetrics, QIcon, QKeyEvent)
 
+from PyQt6.QtWidgets import (QApplication, QWidget, QMenu, QColorDialog, 
+                            QMessageBox, QInputDialog, QVBoxLayout, QLabel,
+                            QPushButton, QHBoxLayout, QDialog, QTextEdit,
+                            QListWidget, QListWidgetItem, QScrollArea, QGridLayout,
+                            QLineEdit, QGroupBox)  # Add QGroupBox here
 # --- Speech & TTS ---
 import pyttsx3
 import speech_recognition as sr
@@ -926,308 +931,480 @@ def process_jarvis_command(user_input: str, orb) -> str:
         return f"I encountered an issue, sir: {str(e)}"
 
 # ============================================================================
-# COOL INTERACTIVE CHAT UI WITH THREAD-SAFE UPDATES
+# COMPACT RED & BLACK TERMINAL CHAT UI
 # ============================================================================
 
 class ChatUI(QWidget):
-    """Modern interactive chat interface"""
-    message_sent = pyqtSignal(str)  # Signal when user sends a message
-    add_message_signal = pyqtSignal(str, str, bool)  # Signal to add message from other threads
+    """Compact red & black terminal-style chat interface"""
+    message_sent = pyqtSignal(str)
+    add_message_signal = pyqtSignal(str, str, bool)
     
     def __init__(self, memory_manager):
         super().__init__()
         self.memory_manager = memory_manager
         self.setup_ui()
-        
-        # Connect signals to slots
         self.add_message_signal.connect(self.add_message_safe)
         
     def setup_ui(self):
-        self.setWindowTitle("💬 JARVIS Chat")
-        self.setGeometry(400, 200, 800, 600)
+        self.setWindowTitle("🔥 JARVIS TERMINAL")
+        self.setGeometry(400, 200, 900, 600)  # Smaller size
+        
+        # COMPACT RED & BLACK THEME
         self.setStyleSheet("""
             QWidget {
-                background-color: #0a192f;
-                color: #e6f1ff;
-                font-family: 'Segoe UI', Arial, sans-serif;
+                background-color: #0a0a0a;
+                color: #ffffff;
+                font-family: 'Segoe UI', Arial;
             }
-            QTextEdit, QListWidget {
-                background-color: #112240;
-                border: 2px solid #1e3a5f;
-                border-radius: 10px;
+            QTextEdit {
+                background-color: #000000;
+                border: 1px solid #ff0000;
+                border-radius: 5px;
                 padding: 10px;
-                color: #ccd6f6;
-                font-size: 13px;
+                color: #ff4444;
+                font-family: 'Consolas', monospace;
+                font-size: 12px;
+                selection-background-color: #ff0000;
             }
             QPushButton {
-                background-color: #64ffda;
-                color: #0a192f;
-                border: none;
-                border-radius: 8px;
-                padding: 12px 20px;
-                font-weight: bold;
-                font-size: 13px;
-                margin: 5px;
+                background-color: #2a0a0a;
+                color: #ff4444;
+                border: 1px solid #ff0000;
+                border-radius: 4px;
+                padding: 6px 10px;
+                font-size: 11px;
+                margin: 2px;
+                min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #7bffe1;
-            }
-            QPushButton:pressed {
-                background-color: #52e0c4;
+                background-color: #ff0000;
+                color: #000000;
             }
             QLineEdit {
-                background-color: #112240;
-                border: 2px solid #1e3a5f;
-                border-radius: 20px;
-                padding: 12px 20px;
-                color: #e6f1ff;
-                font-size: 14px;
-                selection-background-color: #64ffda;
+                background-color: #111111;
+                border: 1px solid #ff0000;
+                border-radius: 15px;
+                padding: 8px 15px;
+                color: #ff4444;
+                font-size: 12px;
+                font-family: 'Consolas', monospace;
             }
             QLabel {
-                color: #64ffda;
-                font-size: 11px;
-                font-weight: 600;
-                letter-spacing: 0.5px;
+                color: #ff4444;
+                font-size: 10px;
+            }
+            QScrollBar:vertical {
+                width: 8px;
+                background: #1a1a1a;
+            }
+            QScrollBar::handle:vertical {
+                background: #ff0000;
+                border-radius: 3px;
             }
         """)
         
-        layout = QVBoxLayout()
+        # Main layout
+        main_layout = QHBoxLayout()
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(8)
         
-        # Header with gradient
-        header = QLabel("🤖 JARVIS INTERACTIVE CHAT")
+        # ===== CHAT AREA =====
+        chat_container = QWidget()
+        chat_layout = QVBoxLayout(chat_container)
+        chat_layout.setSpacing(6)
+        chat_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Compact header
+        header = QLabel("JARVIS TERMINAL")
         header.setStyleSheet("""
             QLabel {
-                font-size: 22px;
+                font-size: 16px;
                 font-weight: bold;
-                color: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #64ffda, stop:0.5 #7bffe1, stop:1 #52e0c4);
-                padding: 15px;
-                text-align: center;
-                background-color: rgba(17, 34, 64, 0.8);
-                border-radius: 12px;
-                margin-bottom: 10px;
+                color: #ff0000;
+                padding: 8px;
+                background-color: #1a0a0a;
+                border-radius: 5px;
+                border: 1px solid #ff0000;
             }
         """)
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(header)
+        chat_layout.addWidget(header)
         
-        # Chat area with message bubbles
+        # Chat area
         self.chat_area = QTextEdit()
         self.chat_area.setReadOnly(True)
-        self.chat_area.setMaximumHeight(400)
-        self.chat_area.setHtml("""
-            <div style='text-align: center; color: #64ffda; font-size: 12px; padding: 20px;'>
-                <b>✨ JARVIS Chat Interface Ready</b><br>
-                Type your message below...
-            </div>
-        """)
-        layout.addWidget(self.chat_area)
-        
-        # Quick action buttons
-        quick_actions = QHBoxLayout()
-        
-        action_buttons = [
-            ("🤔 Ask Anything", "What can you do for me?"),
-            ("💡 Idea", "Give me a creative project idea"),
-            ("⚡ Quick Task", "Take a screenshot"),
-            ("📊 System", "Show system info")
-        ]
-        
-        for text, command in action_buttons:
-            btn = QPushButton(text)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.clicked.connect(lambda checked, cmd=command: self.send_quick_command(cmd))
-            quick_actions.addWidget(btn)
-        
-        layout.addLayout(quick_actions)
+        self.chat_area.setHtml(self.get_terminal_welcome())
+        chat_layout.addWidget(self.chat_area, 1)
         
         # Input area
         input_layout = QHBoxLayout()
+        input_layout.setSpacing(6)
         
         self.message_input = QLineEdit()
-        self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)")
+        self.message_input.setPlaceholderText("└─❯ Enter command...")
         self.message_input.returnPressed.connect(self.send_message)
-        input_layout.addWidget(self.message_input)
+        input_layout.addWidget(self.message_input, 1)
         
-        send_btn = QPushButton("🚀 Send")
-        send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        send_btn = QPushButton("🚀")
+        send_btn.setToolTip("Send message")
+        send_btn.setFixedWidth(50)
         send_btn.clicked.connect(self.send_message)
+        send_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ff0000;
+                color: #000000;
+                font-weight: bold;
+            }
+        """)
         input_layout.addWidget(send_btn)
         
-        layout.addLayout(input_layout)
-        
-        # Bottom toolbar
-        toolbar = QHBoxLayout()
-        
-        clear_btn = QPushButton("🗑️ Clear Chat")
-        clear_btn.clicked.connect(self.clear_chat)
-        toolbar.addWidget(clear_btn)
-        
-        export_btn = QPushButton("💾 Export Chat")
-        export_btn.clicked.connect(self.export_chat)
-        toolbar.addWidget(export_btn)
-        
-        voice_btn = QPushButton("🎤 Voice Input")
+        voice_btn = QPushButton("🎤")
+        voice_btn.setToolTip("Voice input (Alt+V)")
+        voice_btn.setFixedWidth(50)
         voice_btn.clicked.connect(self.start_voice_input)
-        toolbar.addWidget(voice_btn)
+        voice_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00aa00;
+                color: #000000;
+                font-weight: bold;
+            }
+        """)
+        input_layout.addWidget(voice_btn)
         
-        close_btn = QPushButton("✖️ Close")
+        chat_layout.addLayout(input_layout)
+        
+        # ===== SIDE PANEL =====
+        side_container = QWidget()
+        side_container.setFixedWidth(180)  # Even narrower
+        side_layout = QVBoxLayout(side_container)
+        side_layout.setSpacing(6)
+        side_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Quick Actions
+        actions_label = QLabel("⚡ QUICK ACTIONS")
+        actions_label.setStyleSheet("color: #ff4444; font-weight: bold; font-size: 11px;")
+        side_layout.addWidget(actions_label)
+        
+        # Compact action buttons
+        quick_actions = [
+            ("📁 Files", "search for files"),
+            ("🖥️ System", "show system info"),
+            ("📸 Screenshot", "take screenshot"),
+            ("🌐 Web", "search web"),
+            ("📊 Stats", "show resources"),
+            ("🔍 Find", "find processes"),
+            ("🎵 Volume", "control volume"),
+            ("📝 Note", "create quick note"),
+        ]
+        
+        for text, cmd in quick_actions:
+            btn = QPushButton(text)
+            btn.setToolTip(cmd)
+            btn.clicked.connect(lambda checked, c=cmd: self.send_quick_command(c))
+            side_layout.addWidget(btn)
+        
+        side_layout.addSpacing(10)
+        
+        # Tools
+        tools_label = QLabel("🛠️ TOOLS")
+        tools_label.setStyleSheet("color: #ff4444; font-weight: bold; font-size: 11px;")
+        side_layout.addWidget(tools_label)
+        
+        tools = [
+            ("🖱️ Mouse", self.control_mouse),
+            ("⌨️ Type", self.control_keyboard),
+            ("🔒 Lock", self.lock_computer),
+            ("📱 App", self.open_application),
+        ]
+        
+        for text, func in tools:
+            btn = QPushButton(text)
+            btn.clicked.connect(func)
+            side_layout.addWidget(btn)
+        
+        side_layout.addSpacing(10)
+        
+        # Chat Controls
+        chat_label = QLabel("💬 CHAT")
+        chat_label.setStyleSheet("color: #ff4444; font-weight: bold; font-size: 11px;")
+        side_layout.addWidget(chat_label)
+        
+        chat_controls = QHBoxLayout()
+        chat_controls.setSpacing(4)
+        
+        clear_btn = QPushButton("🗑️")
+        clear_btn.setToolTip("Clear chat (Alt+C)")
+        clear_btn.setFixedWidth(40)
+        clear_btn.clicked.connect(self.clear_chat)
+        chat_controls.addWidget(clear_btn)
+        
+        export_btn = QPushButton("💾")
+        export_btn.setToolTip("Export log (Alt+E)")
+        export_btn.setFixedWidth(40)
+        export_btn.clicked.connect(self.export_chat)
+        chat_controls.addWidget(export_btn)
+        
+        copy_btn = QPushButton("📋")
+        copy_btn.setToolTip("Copy chat")
+        copy_btn.setFixedWidth(40)
+        copy_btn.clicked.connect(self.copy_chat)
+        chat_controls.addWidget(copy_btn)
+        
+        reload_btn = QPushButton("🔄")
+        reload_btn.setToolTip("Reload history")
+        reload_btn.setFixedWidth(40)
+        reload_btn.clicked.connect(self.load_chat_history)
+        chat_controls.addWidget(reload_btn)
+        
+        side_layout.addLayout(chat_controls)
+        
+        side_layout.addStretch()
+        
+        # Status
+        status = QLabel("🟢 Online")
+        status.setStyleSheet("color: #00ff00; font-size: 9px; background: #1a1a1a; padding: 4px; border-radius: 3px;")
+        status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        side_layout.addWidget(status)
+        
+        # Close button
+        close_btn = QPushButton("⛔ Close")
         close_btn.clicked.connect(self.close)
         close_btn.setStyleSheet("""
             QPushButton {
-                background-color: #ff6b6b;
+                background-color: #990000;
                 color: white;
-            }
-            QPushButton:hover {
-                background-color: #ff5252;
+                font-size: 11px;
+                padding: 6px;
             }
         """)
-        toolbar.addWidget(close_btn)
+        side_layout.addWidget(close_btn)
         
-        layout.addLayout(toolbar)
-        self.setLayout(layout)
+        # Add to main layout
+        main_layout.addWidget(chat_container, 3)  # 75% width
+        main_layout.addWidget(side_container, 1)  # 25% width
         
-        # Load existing chat history
+        self.setLayout(main_layout)
         self.load_chat_history()
     
+    def get_terminal_welcome(self):
+        from datetime import datetime
+        time_str = datetime.now().strftime("%H:%M")
+        return f"""
+        <div style='color: #ff0000; font-family: Consolas; padding: 8px; font-size: 11px;'>
+            <span style='color: #00ff00;'>┌─[JARVIS]─[{time_str}]</span><br>
+            <span style='color: #00ff00;'>├─❯</span> <span style='color: #ffffff;'>Terminal ready</span><br>
+            <span style='color: #00ff00;'>└─❯</span> <span style='color: #ffff00;'>Type or use side panel</span><br><br>
+            <div style='color: #888888; font-size: 10px;'>
+                [Alt+V] Voice | [Alt+C] Clear | [Alt+E] Export | [Esc] Close
+            </div>
+            <hr style='border: none; border-top: 1px solid #222; margin: 10px 0;'>
+        </div>
+        """
+    
     def add_message_safe(self, sender: str, message: str, is_user: bool = True):
-        """Thread-safe version of add_message"""
         self.add_message(sender, message, is_user)
     
     def add_message(self, sender: str, message: str, is_user: bool = True):
-        """Add a message to chat with cool styling"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M")
         
         if is_user:
-            bubble_color = "#1e3a5f"
-            text_color = "#e6f1ff"
-            align = "right"
-            sender_name = "👤 You"
+            color = "#00ff00"
+            sender_name = "USER"
+            prefix = "└─❯"
         else:
-            bubble_color = "#0f2d5c"
-            text_color = "#64ffda"
-            align = "left"
-            sender_name = "🤖 JARVIS"
+            color = "#ff0000"
+            sender_name = "JARVIS"
+            prefix = "[AI]─❯"
         
-        # Replace newlines with HTML line breaks BEFORE using in f-string
-        message_with_breaks = message.replace('\n', '<br>')
-        
-        # Build HTML without the problematic transform property
+        msg_html = message.replace('\n', '<br>')
         message_html = (
-            f"<div style='margin: 15px 0; text-align: {align};'>"
-            f"<div style='"
-            f"display: inline-block;"
-            f"max-width: 70%;"
-            f"background-color: {bubble_color};"
-            f"border-radius: 18px;"
-            f"padding: 12px 18px;"
-            f"box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);"
-            f"border: 1px solid rgba(100, 255, 218, 0.1);"
-            f"'>"
-            f"<div style='font-size: 10px; color: #8892b0; margin-bottom: 5px;'>"
-            f"{sender_name} • {timestamp}"
+            f"<div style='font-family: Consolas; margin: 6px 0; font-size: 11px;'>"
+            f"<span style='color: #666;'>[{timestamp}]</span> "
+            f"<span style='color: {color}; font-weight: bold;'>[{sender_name}]</span><br>"
+            f"<span style='color: {color};'>{prefix}</span> "
+            f"<span style='color: #ffffff;'>{msg_html}</span>"
             f"</div>"
-            f"<div style='color: {text_color}; font-size: 14px; line-height: 1.4;'>"
-            f"{message_with_breaks}"
-            f"</div>"
-            f"</div>"
-            f"</div>"
+            f"<hr style='border: none; border-top: 1px dashed #222; margin: 6px 0;'>"
         )
         
-        # Get current HTML and append new message
-        current_html = self.chat_area.toHtml()
-        if "JARVIS Chat Interface Ready" in current_html:
-            self.chat_area.setHtml(message_html)
-        else:
-            self.chat_area.setHtml(current_html + message_html)
-        
-        # Scroll to bottom
-        scrollbar = self.chat_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        self.chat_area.setHtml(self.chat_area.toHtml() + message_html)
+        self.chat_area.verticalScrollBar().setValue(self.chat_area.verticalScrollBar().maximum())
     
     def send_message(self):
-        """Send message from input box"""
         message = self.message_input.text().strip()
         if message:
-            self.add_message("You", message, is_user=True)
+            self.add_message("USER", message, is_user=True)
             self.message_sent.emit(message)
             self.message_input.clear()
     
     def send_quick_command(self, command: str):
-        """Send a quick command from button"""
+        self.add_message("SYSTEM", f"Exec: {command}", is_user=False)
         self.message_input.setText(command)
         self.send_message()
     
     def receive_message(self, message: str):
-        """Display message from JARVIS"""
         self.add_message("JARVIS", message, is_user=False)
     
     def clear_chat(self):
-        """Clear chat history"""
-        reply = QMessageBox.question(self, 'Clear Chat', 
-                                    'Are you sure you want to clear the chat?',
-                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+        reply = QMessageBox.question(self, 'Clear', 'Clear chat?', 
+                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            self.chat_area.setHtml("""
-                <div style='text-align: center; color: #64ffda; font-size: 12px; padding: 20px;'>
-                    <b>✨ Chat cleared</b><br>
-                    Start a new conversation...
-                </div>
-            """)
+            self.chat_area.setHtml(self.get_terminal_welcome())
+            self.add_message("SYSTEM", "Chat cleared", is_user=False)
     
     def export_chat(self):
-        """Export chat to text file"""
         from datetime import datetime
-        filename = f"chat_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        
-        # Get plain text from chat
-        chat_text = self.chat_area.toPlainText()
+        filename = f"jarvis_log_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
         
         try:
             with open(filename, 'w', encoding='utf-8') as f:
-                f.write(f"JARVIS Chat Export - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write("="*50 + "\n\n")
-                f.write(chat_text)
+                f.write(f"JARVIS Chat - {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
+                f.write("="*40 + "\n\n")
+                f.write(self.chat_area.toPlainText())
             
-            QMessageBox.information(self, "✅ Success", 
-                                  f"Chat exported to:\n{filename}")
+            self.add_message("SYSTEM", f"Exported: {filename}", is_user=False)
+            QMessageBox.information(self, "Exported", f"Saved to:\n{filename}")
         except Exception as e:
-            QMessageBox.warning(self, "❌ Error", f"Failed to export chat:\n{str(e)}")
+            self.add_message("SYSTEM", f"Export failed: {str(e)}", is_user=False)
     
     def start_voice_input(self):
-        """Start voice input"""
-        # Simple voice input using speech recognition
         import speech_recognition as sr
         
         try:
+            self.message_input.setPlaceholderText("🎤 Listening...")
+            self.message_input.setStyleSheet("""
+                QLineEdit {
+                    background-color: #111111;
+                    border: 1px solid #00ff00;
+                    color: #00ff00;
+                }
+            """)
+            QApplication.processEvents()
+            
             recognizer = sr.Recognizer()
             with sr.Microphone() as source:
-                # Show listening status
-                self.message_input.setPlaceholderText("🎤 Listening... Speak now")
-                QApplication.processEvents()
-                
                 audio = recognizer.listen(source, timeout=5)
                 text = recognizer.recognize_google(audio)
                 self.message_input.setText(text)
-                self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)")
+                self.add_message("VOICE", f"Heard: {text}", is_user=False)
+                self.send_message()
+                
         except sr.WaitTimeoutError:
-            self.message_input.setPlaceholderText("⏰ No speech detected")
-            QTimer.singleShot(2000, lambda: self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)"))
+            self.message_input.setPlaceholderText("⏰ No speech")
+            QTimer.singleShot(1500, lambda: self.message_input.setPlaceholderText("└─❯ Enter command..."))
         except Exception as e:
-            QMessageBox.warning(self, "Voice Input Error", 
-                              f"Could not process voice input:\n{str(e)}")
-            self.message_input.setPlaceholderText("Type your message here... (Press Enter to send)")
+            self.add_message("SYSTEM", f"Voice error: {str(e)}", is_user=False)
+        finally:
+            self.message_input.setStyleSheet("""
+                QLineEdit {
+                    background-color: #111111;
+                    border: 1px solid #ff0000;
+                    color: #ff4444;
+                }
+            """)
+            self.message_input.setPlaceholderText("└─❯ Enter command...")
     
     def load_chat_history(self):
-        """Load recent chat history"""
         if self.memory_manager.current_session:
-            messages = self.memory_manager.get_recent_messages(10)
+            messages = self.memory_manager.get_recent_messages(8)
             for msg in messages:
                 is_user = msg["role"] == "user"
-                self.add_message(msg["role"], msg["content"], is_user=is_user)
-
+                self.add_message(msg["role"].upper(), msg["content"], is_user=is_user)
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_V and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+            self.start_voice_input()
+        elif event.key() == Qt.Key.Key_C and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+            self.clear_chat()
+        elif event.key() == Qt.Key.Key_E and event.modifiers() == Qt.KeyboardModifier.AltModifier:
+            self.export_chat()
+        elif event.key() == Qt.Key.Key_Escape:
+            self.close()
+        else:
+            super().keyPressEvent(event)
+    
+    # Tool functions
+    def control_mouse(self):
+        self.send_quick_command("control mouse")
+    
+    def control_keyboard(self):
+        text, ok = QInputDialog.getText(self, "Type", "Text to type:")
+        if ok and text:
+            self.send_quick_command(f"type {text}")
+    
+    def lock_computer(self):
+        self.send_quick_command("lock computer")
+    
+    def open_application(self):
+        app, ok = QInputDialog.getText(self, "Open App", "App name:")
+        if ok and app:
+            self.send_quick_command(f"open {app}")
+    
+    def copy_chat(self):
+        QApplication.clipboard().setText(self.chat_area.toPlainText())
+        self.add_message("SYSTEM", "Copied to clipboard", is_user=False)
+    
+    # ===== Tool Functions =====
+    
+    def create_quick_note(self):
+        """Create a quick note"""
+        text, ok = QInputDialog.getText(self, "Quick Note", "Enter your note:")
+        if ok and text:
+            self.send_quick_command(f"Create note: {text}")
+    
+    def control_mouse(self):
+        """Open mouse control dialog"""
+        options = ["Move to center", "Left click", "Right click", "Get position"]
+        choice, ok = QInputDialog.getItem(self, "Mouse Control", "Select action:", options, 0, False)
+        if ok and choice:
+            self.send_quick_command(f"Mouse {choice.lower()}")
+    
+    def control_keyboard(self):
+        """Open keyboard control dialog"""
+        text, ok = QInputDialog.getText(self, "Keyboard Control", "Enter text to type:")
+        if ok and text:
+            self.send_quick_command(f"Type {text}")
+    
+    def lock_computer(self):
+        """Lock the computer"""
+        reply = QMessageBox.question(self, "Lock Computer", 
+                                    "Lock your computer now?",
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            self.send_quick_command("Lock computer")
+    
+    def open_application(self):
+        """Open an application"""
+        text, ok = QInputDialog.getText(self, "Open Application", "Enter application name:")
+        if ok and text:
+            self.send_quick_command(f"Open {text}")
+    
+    def close_application(self):
+        """Close an application"""
+        text, ok = QInputDialog.getText(self, "Close Application", "Enter application name:")
+        if ok and text:
+            self.send_quick_command(f"Close {text}")
+    
+    def test_voice(self):
+        """Test TTS voice"""
+        self.send_quick_command("Test voice output")
+    
+    def play_sound(self):
+        """Play a test sound"""
+        self.send_quick_command("Play test sound")
+    
+    def record_audio(self):
+        """Record audio"""
+        duration, ok = QInputDialog.getInt(self, "Record Audio", "Duration (seconds):", 5, 1, 60, 1)
+        if ok:
+            self.send_quick_command(f"Record audio for {duration} seconds")
+    
+    def copy_chat(self):
+        """Copy chat to clipboard"""
+        chat_text = self.chat_area.toPlainText()
+        QApplication.clipboard().setText(chat_text)
+        self.add_message("SYSTEM", "Chat copied to clipboard", is_user=False)
 # ============================================================================
 # HYPERREALISTIC ORB UI WITH TASKBAR ICON
 # ============================================================================
