@@ -80,8 +80,7 @@ JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete sys
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/yourusername/jarvis-ai.git
-cd jarvis-ai
+git clone https://github.com/xotiic4201/Jarvis-advance.git
 ```
 
 ### Step 2: Install Dependencies
