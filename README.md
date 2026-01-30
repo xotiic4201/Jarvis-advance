@@ -317,11 +317,8 @@ We welcome contributions! Here's how:
 
 - **Issues**: [GitHub Issues](https://github.com/xotiic4201/Jarvis-advance/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/xotiic4201/Jarvis-advance/discussions)
-- **Wiki**: [Documentation](https://github.com/xotiic4201/Jarvis-advance/wiki)
+- **Discord**: [Server](https://github.com/xotiic4201/Jarvis-advance/wiki](https://discord.gg/SVvZFnct37 )
 
-## 🚀 Quick Start Video
-
-[![Watch the video](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://youtube.com/YOUR_VIDEO_LINK)
 
 ---
 
