@@ -1,0 +1,54 @@
+# JARVIS AI - Requirements
+# Advanced Hyperrealistic AI Assistant
+
+# Core AI and LLM
+langchain==0.1.0
+langchain-ollama==0.0.1
+langchain-community==0.0.13
+
+# GUI Framework
+PyQt6==6.6.1
+PyQt6-Qt6==6.6.1
+PyQt6-sip==13.6.0
+
+# Speech and Audio
+pyttsx3==2.90
+SpeechRecognition==3.10.1
+pyaudio==0.2.14
+sounddevice==0.4.6
+soundfile==0.12.1
+
+# System Automation and Control
+pyautogui==0.9.54
+pyperclip==1.8.2
+keyboard==0.13.5
+mouse==0.7.1
+psutil==5.9.8
+
+# Screenshots and Image Processing
+mss==9.0.1
+Pillow==10.2.0
+opencv-python==4.9.0.80
+
+# OCR (Optical Character Recognition)
+pytesseract==0.3.10
+
+# Network and Web
+requests==2.31.0
+duckduckgo-search==4.1.1
+
+# File and Data Handling
+python-dotenv==1.0.1
+pytz==2024.1
+
+# Windows-specific (optional, for Windows users)
+pywin32==306; platform_system == "Windows"
+
+# Additional utilities
+numpy==1.26.3
+colorama==0.4.6
+
+# Development and Testing (optional)
+pytest==8.0.0
+black==24.1.1
+flake8==7.0.0
