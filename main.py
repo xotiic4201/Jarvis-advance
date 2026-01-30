@@ -204,11 +204,62 @@ TRIGGER_WORD = "jarvis"
 CONVERSATION_TIMEOUT = 30
 MEMORY_FILE = "jarvis_memory.json"
 CHAT_HISTORY_FILE = "chat_sessions.json"
+SETTINGS_FILE = "jarvis_settings.json"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Speech control flags
 speech_active = True
 speech_paused = False
+
+# Default settings
+DEFAULT_SETTINGS = {
+    "voice_rate": 180,
+    "voice_volume": 0.9,
+    "voice_id": 0,  # Default voice
+    "microphone_index": None,  # None = default
+    "speaker_index": None,  # None = default
+    "orb_color": [0, 150, 255],  # RGB
+    "glow_color": [100, 200, 255],  # RGB
+    "ai_model": "qwen2.5:7b",
+    "conversation_timeout": 30
+}
+
+class SettingsManager:
+    def __init__(self):
+        self.settings = DEFAULT_SETTINGS.copy()
+        self.load_settings()
+    
+    def load_settings(self):
+        """Load settings from file"""
+        try:
+            if os.path.exists(SETTINGS_FILE):
+                with open(SETTINGS_FILE, 'r') as f:
+                    saved_settings = json.load(f)
+                    self.settings.update(saved_settings)
+                logging.info("⚙️ Settings loaded")
+        except Exception as e:
+            logging.error(f"Failed to load settings: {e}")
+    
+    def save_settings(self):
+        """Save settings to file"""
+        try:
+            with open(SETTINGS_FILE, 'w') as f:
+                json.dump(self.settings, f, indent=2)
+            logging.info("💾 Settings saved")
+        except Exception as e:
+            logging.error(f"Failed to save settings: {e}")
+    
+    def get(self, key, default=None):
+        """Get a setting value"""
+        return self.settings.get(key, default)
+    
+    def set(self, key, value):
+        """Set a setting value"""
+        self.settings[key] = value
+        self.save_settings()
+
+# Initialize settings manager
+settings_manager = SettingsManager()
 
 print(f"\n{'='*60}")
 print(f"🚀 JARVIS AI - ADVANCED HYPERREALISTIC ASSISTANT")
@@ -353,6 +404,23 @@ class AdvancedMemoryManager:
         
         sessions.sort(key=lambda x: x["timestamp"], reverse=True)
         return sessions
+    
+    def get_message_history(self, session_id: str):
+        """Get message history for LangChain integration"""
+        from langchain_community.chat_message_histories import ChatMessageHistory
+        from langchain_core.messages import HumanMessage, AIMessage
+        
+        history = ChatMessageHistory()
+        
+        if session_id in self.conversations:
+            conv = self.conversations[session_id]
+            for msg in conv.messages:
+                if msg["role"] == "user":
+                    history.add_message(HumanMessage(content=msg["content"]))
+                elif msg["role"] == "assistant":
+                    history.add_message(AIMessage(content=msg["content"]))
+        
+        return history
 
 # Initialize memory manager
 memory_manager = AdvancedMemoryManager()
@@ -586,9 +654,11 @@ class JarvisOrb(QWidget):
         self.base_radius = 60
         self.current_radius = self.base_radius
         
-        # Colors
-        self.core_color = QColor(0, 150, 255)
-        self.glow_color = QColor(100, 200, 255)
+        # Colors - load from settings
+        saved_core = settings_manager.get('orb_color', [0, 150, 255])
+        saved_glow = settings_manager.get('glow_color', [100, 200, 255])
+        self.core_color = QColor(saved_core[0], saved_core[1], saved_core[2])
+        self.glow_color = QColor(saved_glow[0], saved_glow[1], saved_glow[2])
         
         # Setup UI
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
@@ -644,29 +714,60 @@ class JarvisOrb(QWidget):
         center_x = self.width() // 2
         center_y = self.height() // 2 - 20
         
-        # Outer glow
-        for i in range(5):
-            glow_radius = self.current_radius + (i * 15)
-            alpha = 50 - (i * 10)
+        # Animated pulse effect
+        pulse_offset = math.sin(self.pulse_phase) * 10
+        
+        # Multiple layered outer glow rings for depth
+        for i in range(8):
+            glow_radius = self.current_radius + pulse_offset + (i * 12)
+            alpha = max(0, 80 - (i * 10))
             gradient = QRadialGradient(center_x, center_y, glow_radius)
             gradient.setColorAt(0, QColor(self.glow_color.red(), self.glow_color.green(), self.glow_color.blue(), alpha))
+            gradient.setColorAt(0.7, QColor(self.glow_color.red(), self.glow_color.green(), self.glow_color.blue(), alpha // 3))
             gradient.setColorAt(1, QColor(self.glow_color.red(), self.glow_color.green(), self.glow_color.blue(), 0))
             painter.setBrush(QBrush(gradient))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QPointF(center_x, center_y), glow_radius, glow_radius)
         
-        # Core orb
-        gradient = QRadialGradient(center_x, center_y, self.current_radius)
-        gradient.setColorAt(0, QColor(255, 255, 255, 200))
-        gradient.setColorAt(0.5, self.core_color)
-        gradient.setColorAt(1, QColor(self.core_color.red()//2, self.core_color.green()//2, self.core_color.blue()//2))
+        # Main orb with 3D effect
+        gradient = QRadialGradient(center_x - 15, center_y - 15, self.current_radius * 1.5)
+        gradient.setColorAt(0, QColor(255, 255, 255, 250))  # Bright highlight
+        gradient.setColorAt(0.3, self.core_color)
+        gradient.setColorAt(0.7, QColor(self.core_color.red()//2, self.core_color.green()//2, self.core_color.blue()//2))
+        gradient.setColorAt(1, QColor(self.core_color.red()//3, self.core_color.green()//3, self.core_color.blue()//3))
         painter.setBrush(QBrush(gradient))
-        painter.setPen(QPen(QColor(255, 255, 255, 100), 2))
+        
+        # Glowing edge
+        painter.setPen(QPen(QColor(255, 255, 255, 150), 3))
         painter.drawEllipse(QPointF(center_x, center_y), self.current_radius, self.current_radius)
         
-        # Status text
+        # Inner glow ring
+        inner_ring_radius = self.current_radius - 10
+        inner_gradient = QRadialGradient(center_x, center_y, inner_ring_radius)
+        inner_gradient.setColorAt(0, QColor(255, 255, 255, 0))
+        inner_gradient.setColorAt(0.8, QColor(255, 255, 255, 0))
+        inner_gradient.setColorAt(1, QColor(255, 255, 255, 100))
+        painter.setBrush(QBrush(inner_gradient))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(QPointF(center_x, center_y), inner_ring_radius, inner_ring_radius)
+        
+        # Rotating arc effect
+        arc_path = QPainterPath()
+        arc_rect = QRectF(center_x - self.current_radius - 5, center_y - self.current_radius - 5,
+                         (self.current_radius + 5) * 2, (self.current_radius + 5) * 2)
+        arc_path.arcMoveTo(arc_rect, self.rotation)
+        arc_path.arcTo(arc_rect, self.rotation, 120)
+        
+        painter.setPen(QPen(QColor(self.glow_color.red(), self.glow_color.green(), self.glow_color.blue(), 200), 4))
+        painter.drawPath(arc_path)
+        
+        # Status text with shadow
+        painter.setPen(QColor(0, 0, 0, 150))
+        painter.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        text_rect_shadow = QRectF(1, center_y + self.current_radius + 21, self.width(), 40)
+        painter.drawText(text_rect_shadow, Qt.AlignmentFlag.AlignCenter, self.status_text)
+        
         painter.setPen(QColor(255, 255, 255))
-        painter.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         text_rect = QRectF(0, center_y + self.current_radius + 20, self.width(), 40)
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, self.status_text)
     
@@ -693,6 +794,7 @@ class JarvisOrb(QWidget):
     
     def show_menu(self, pos):
         menu = QMenu()
+        menu.addAction("⚙️ Settings", lambda: self.show_settings_dialog())
         menu.addAction("📊 System Info", lambda: self.show_info())
         menu.addAction("🤖 Change AI Model", lambda: self.show_model_selector())
         menu.addAction("💾 Memory Manager", lambda: self.show_memory_dialog())
@@ -873,7 +975,174 @@ Tools Loaded: {len(tools)}
                 min(color.green() + 50, 255),
                 min(color.blue() + 50, 255)
             )
+            # Save color to settings
+            settings_manager.set('orb_color', [color.red(), color.green(), color.blue()])
+            settings_manager.set('glow_color', [self.glow_color.red(), self.glow_color.green(), self.glow_color.blue()])
             self.update()
+    
+    def show_settings_dialog(self):
+        """Show comprehensive settings dialog"""
+        from PyQt6.QtWidgets import QSlider, QComboBox, QSpinBox
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("⚙️ JARVIS Settings")
+        dialog.setMinimumSize(600, 700)
+        
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("⚙️ JARVIS CONFIGURATION")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        
+        # Scroll area for settings
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        
+        # === VOICE SETTINGS ===
+        voice_group = QLabel("🎤 Voice Settings")
+        voice_group.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        scroll_layout.addWidget(voice_group)
+        
+        # Voice selection
+        voice_layout = QHBoxLayout()
+        voice_layout.addWidget(QLabel("Voice:"))
+        voice_combo = QComboBox()
+        
+        # Get available voices
+        try:
+            temp_engine = pyttsx3.init()
+            voices = temp_engine.getProperty('voices')
+            for i, voice in enumerate(voices):
+                voice_combo.addItem(f"{i}: {voice.name}", i)
+            voice_combo.setCurrentIndex(settings_manager.get('voice_id', 0))
+            temp_engine.stop()
+            del temp_engine
+        except:
+            voice_combo.addItem("Default Voice", 0)
+        
+        voice_layout.addWidget(voice_combo)
+        scroll_layout.addLayout(voice_layout)
+        
+        # Voice rate
+        rate_layout = QHBoxLayout()
+        rate_layout.addWidget(QLabel("Speech Rate:"))
+        rate_slider = QSlider(Qt.Orientation.Horizontal)
+        rate_slider.setMinimum(100)
+        rate_slider.setMaximum(300)
+        rate_slider.setValue(settings_manager.get('voice_rate', 180))
+        rate_label = QLabel(f"{rate_slider.value()}")
+        rate_slider.valueChanged.connect(lambda v: rate_label.setText(f"{v}"))
+        rate_layout.addWidget(rate_slider)
+        rate_layout.addWidget(rate_label)
+        scroll_layout.addLayout(rate_layout)
+        
+        # Voice volume
+        volume_layout = QHBoxLayout()
+        volume_layout.addWidget(QLabel("Volume:"))
+        volume_slider = QSlider(Qt.Orientation.Horizontal)
+        volume_slider.setMinimum(0)
+        volume_slider.setMaximum(100)
+        volume_slider.setValue(int(settings_manager.get('voice_volume', 0.9) * 100))
+        volume_label = QLabel(f"{volume_slider.value()}%")
+        volume_slider.valueChanged.connect(lambda v: volume_label.setText(f"{v}%"))
+        volume_layout.addWidget(volume_slider)
+        volume_layout.addWidget(volume_label)
+        scroll_layout.addLayout(volume_layout)
+        
+        # === AUDIO DEVICE SETTINGS ===
+        audio_group = QLabel("🎧 Audio Devices")
+        audio_group.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        scroll_layout.addWidget(audio_group)
+        
+        # Microphone selection
+        mic_layout = QHBoxLayout()
+        mic_layout.addWidget(QLabel("Microphone:"))
+        mic_combo = QComboBox()
+        
+        try:
+            # Get available microphones
+            for i, mic_name in enumerate(sr.Microphone.list_microphone_names()):
+                mic_combo.addItem(f"{i}: {mic_name}", i)
+            current_mic = settings_manager.get('microphone_index')
+            if current_mic is not None:
+                mic_combo.setCurrentIndex(current_mic)
+        except Exception as e:
+            mic_combo.addItem("Default Microphone", None)
+            logging.error(f"Failed to list microphones: {e}")
+        
+        mic_layout.addWidget(mic_combo)
+        scroll_layout.addLayout(mic_layout)
+        
+        # === CONVERSATION SETTINGS ===
+        conv_group = QLabel("💬 Conversation")
+        conv_group.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        scroll_layout.addWidget(conv_group)
+        
+        # Timeout
+        timeout_layout = QHBoxLayout()
+        timeout_layout.addWidget(QLabel("Timeout (seconds):"))
+        timeout_spin = QSpinBox()
+        timeout_spin.setMinimum(10)
+        timeout_spin.setMaximum(120)
+        timeout_spin.setValue(settings_manager.get('conversation_timeout', 30))
+        timeout_layout.addWidget(timeout_spin)
+        scroll_layout.addLayout(timeout_layout)
+        
+        # === APPEARANCE ===
+        appear_group = QLabel("🎨 Appearance")
+        appear_group.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        scroll_layout.addWidget(appear_group)
+        
+        # Color buttons
+        color_layout = QHBoxLayout()
+        core_color_btn = QPushButton("Change Orb Color")
+        core_color_btn.clicked.connect(self.change_color)
+        color_layout.addWidget(core_color_btn)
+        scroll_layout.addLayout(color_layout)
+        
+        scroll.setWidget(scroll_content)
+        layout.addWidget(scroll)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        save_btn = QPushButton("💾 Save Settings")
+        test_voice_btn = QPushButton("🔊 Test Voice")
+        close_btn = QPushButton("❌ Close")
+        
+        def save_settings():
+            settings_manager.set('voice_id', voice_combo.currentData())
+            settings_manager.set('voice_rate', rate_slider.value())
+            settings_manager.set('voice_volume', volume_slider.value() / 100.0)
+            settings_manager.set('microphone_index', mic_combo.currentData())
+            settings_manager.set('conversation_timeout', timeout_spin.value())
+            
+            QMessageBox.information(dialog, "✅ Success", "Settings saved successfully!\nRestart JARVIS for some changes to take effect.")
+        
+        def test_voice():
+            # Temporarily save settings
+            settings_manager.set('voice_id', voice_combo.currentData())
+            settings_manager.set('voice_rate', rate_slider.value())
+            settings_manager.set('voice_volume', volume_slider.value() / 100.0)
+            
+            # Test speech
+            speak_text("Hello sir, this is a voice test. How do I sound?", self)
+        
+        save_btn.clicked.connect(save_settings)
+        test_voice_btn.clicked.connect(test_voice)
+        close_btn.clicked.connect(dialog.close)
+        
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(test_voice_btn)
+        button_layout.addWidget(close_btn)
+        
+        layout.addLayout(button_layout)
+        dialog.setLayout(layout)
+        dialog.exec()
     
     def show_tools(self):
         """Show interactive tool browser with clickable tools"""
@@ -1125,8 +1394,16 @@ def speak_text(text: str, orb: JarvisOrb = None):
         
         # Reinitialize engine each time for thread safety
         current_engine = pyttsx3.init()
-        current_engine.setProperty('rate', 180)
-        current_engine.setProperty('volume', 0.9)
+        
+        # Apply voice settings from settings_manager
+        current_engine.setProperty('rate', settings_manager.get('voice_rate', 180))
+        current_engine.setProperty('volume', settings_manager.get('voice_volume', 0.9))
+        
+        # Set voice if available
+        voices = current_engine.getProperty('voices')
+        voice_id = settings_manager.get('voice_id', 0)
+        if voices and 0 <= voice_id < len(voices):
+            current_engine.setProperty('voice', voices[voice_id].id)
         
         # Clean text
         clean_text = text
@@ -1200,7 +1477,16 @@ def run_jarvis_engine(orb: JarvisOrb):
     global speech_active
     
     recognizer = sr.Recognizer()
-    mic = sr.Microphone()
+    
+    # Use configured microphone or default
+    mic_index = settings_manager.get('microphone_index')
+    if mic_index is not None:
+        mic = sr.Microphone(device_index=mic_index)
+        print(f"🎤 Using microphone index: {mic_index}")
+    else:
+        mic = sr.Microphone()
+        print("🎤 Using default microphone")
+    
     conversation_mode = False
     last_interaction = time.time()
     
