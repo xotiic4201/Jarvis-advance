@@ -361,9 +361,68 @@ memory_manager = AdvancedMemoryManager()
 # AI BRAIN SETUP WITH ALL TOOLS
 # ============================================================================
 
+# Global variables for model management
+current_model = "qwen2.5:7b"
+available_models = []
+
+def get_ollama_models():
+    """Get list of installed Ollama models"""
+    try:
+        import subprocess
+        result = subprocess.run(['ollama', 'list'], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')[1:]  # Skip header
+            models = []
+            for line in lines:
+                if line.strip():
+                    # Extract model name (first column)
+                    model_name = line.split()[0]
+                    models.append(model_name)
+            return models
+        return []
+    except Exception as e:
+        logging.error(f"Failed to get Ollama models: {e}")
+        return []
+
+def initialize_llm(model_name=None):
+    """Initialize or reinitialize the LLM with specified model"""
+    global llm, executor, executor_with_history, current_model
+    
+    if model_name:
+        current_model = model_name
+    
+    llm = ChatOllama(
+        model=current_model,
+        temperature=0,
+        num_predict=512,
+        top_p=0.9
+    )
+    
+    # Recreate the agent with new LLM
+    agent = create_tool_calling_agent(llm, tools, prompt)
+    executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
+    
+    # Recreate executor with history
+    executor_with_history = RunnableWithMessageHistory(
+        executor,
+        lambda session_id: memory_manager.get_message_history(session_id),
+        input_messages_key="input",
+        history_messages_key="chat_history",
+    )
+    
+    logging.info(f"🤖 LLM initialized with model: {current_model}")
+    return llm
+
+# Get available models on startup
+available_models = get_ollama_models()
+if available_models:
+    logging.info(f"📦 Found {len(available_models)} Ollama models: {', '.join(available_models)}")
+else:
+    logging.warning("⚠️ No Ollama models found or Ollama not running")
+
 llm = ChatOllama(
-    model="qwen2.5:7b",
-    temperature=0.7,
+    model=current_model,
+    temperature=0,
     num_predict=512,
     top_p=0.9
 )
@@ -575,7 +634,8 @@ class JarvisOrb(QWidget):
     def stop_speaking(self):
         """Stop current speech output"""
         stop_speech()
-        self.set_status("🔇 Stopped")
+        self.set_status("🔇 Speech Stopped")
+        QTimer.singleShot(1000, lambda: self.set_status("👂 Listening..."))
     
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -634,6 +694,7 @@ class JarvisOrb(QWidget):
     def show_menu(self, pos):
         menu = QMenu()
         menu.addAction("📊 System Info", lambda: self.show_info())
+        menu.addAction("🤖 Change AI Model", lambda: self.show_model_selector())
         menu.addAction("💾 Memory Manager", lambda: self.show_memory_dialog())
         menu.addAction("🎨 Change Color", lambda: self.change_color())
         menu.addAction("📋 Show Tools", lambda: self.show_tools())
@@ -652,6 +713,7 @@ class JarvisOrb(QWidget):
 {'='*40}
 Platform: {platform.system()} {platform.release()}
 Python: {platform.python_version()}
+AI Model: {current_model}
 CPU Usage: {cpu}%
 Memory: {mem}%
 Sessions: {len(self.memory_manager.conversations)}
@@ -659,6 +721,107 @@ Tools Loaded: {len(tools)}
 {'='*40}"""
         
         QMessageBox.information(self, "System Info", info)
+    
+    def show_model_selector(self):
+        """Show dialog to select Ollama model"""
+        global available_models, current_model
+        
+        # Refresh models list
+        self.set_status("🔄 Scanning models...")
+        available_models = get_ollama_models()
+        
+        if not available_models:
+            QMessageBox.warning(self, "No Models Found", 
+                              "No Ollama models found!\n\n"
+                              "Make sure Ollama is running and you have models installed.\n"
+                              "Install models with: ollama pull <model_name>")
+            self.set_status("⚠️ No models")
+            return
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Select AI Model")
+        dialog.setMinimumSize(500, 400)
+        
+        layout = QVBoxLayout()
+        
+        # Current model info
+        current_label = QLabel(f"🤖 Current Model: <b>{current_model}</b>")
+        current_label.setStyleSheet("font-size: 14px; padding: 10px;")
+        layout.addWidget(current_label)
+        
+        # Model list
+        layout.addWidget(QLabel("📦 Available Ollama Models:"))
+        model_list = QListWidget()
+        
+        for model in available_models:
+            item = QListWidgetItem(f"🔹 {model}")
+            if model == current_model:
+                item.setBackground(QColor(200, 255, 200))
+                item.setText(f"✅ {model} (Current)")
+            model_list.addItem(item)
+        
+        layout.addWidget(model_list)
+        
+        # Info label
+        info_label = QLabel("💡 Tip: Larger models (70b) are smarter but slower.\n"
+                           "Smaller models (7b-13b) are faster but less capable.")
+        info_label.setStyleSheet("font-size: 11px; color: gray; padding: 5px;")
+        layout.addWidget(info_label)
+        
+        # Buttons
+        buttons = QHBoxLayout()
+        select_btn = QPushButton("✅ Select Model")
+        refresh_btn = QPushButton("🔄 Refresh")
+        close_btn = QPushButton("✖️ Close")
+        
+        def select_model():
+            selected_item = model_list.currentItem()
+            if selected_item:
+                # Extract model name (remove emoji and markers)
+                model_text = selected_item.text()
+                model_name = model_text.replace('🔹 ', '').replace('✅ ', '').replace(' (Current)', '')
+                
+                if model_name != current_model:
+                    self.set_status(f"🔄 Switching to {model_name}...")
+                    try:
+                        initialize_llm(model_name)
+                        QMessageBox.information(self, "Success", 
+                                              f"✅ Switched to model: {model_name}\n\n"
+                                              "The new model will be used for all future responses.")
+                        dialog.close()
+                        self.set_status("✅ Model changed")
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", 
+                                           f"Failed to switch model:\n{str(e)}")
+                        self.set_status("⚠️ Switch failed")
+                else:
+                    QMessageBox.information(self, "Already Selected", 
+                                          f"Model {model_name} is already active.")
+        
+        def refresh_models():
+            self.set_status("🔄 Refreshing...")
+            model_list.clear()
+            available_models = get_ollama_models()
+            for model in available_models:
+                item = QListWidgetItem(f"🔹 {model}")
+                if model == current_model:
+                    item.setBackground(QColor(200, 255, 200))
+                    item.setText(f"✅ {model} (Current)")
+                model_list.addItem(item)
+            self.set_status("✅ Refreshed")
+        
+        select_btn.clicked.connect(select_model)
+        refresh_btn.clicked.connect(refresh_models)
+        close_btn.clicked.connect(dialog.close)
+        
+        buttons.addWidget(select_btn)
+        buttons.addWidget(refresh_btn)
+        buttons.addWidget(close_btn)
+        layout.addLayout(buttons)
+        
+        dialog.setLayout(layout)
+        dialog.exec()
+        self.set_status("✅ Ready")
     
     def show_memory_dialog(self):
         dialog = QDialog(self)
@@ -947,17 +1110,23 @@ Tools Loaded: {len(tools)}
 # TEXT-TO-SPEECH WITH CLEANUP
 # ============================================================================
 
-speech_engine = None
 speech_active = False
+speech_paused = False
+current_engine = None
 
 def speak_text(text: str, orb: JarvisOrb = None):
-    global speech_engine, speech_active
+    """Speak text using TTS - reinitializes engine each time for thread safety"""
+    global speech_active, speech_paused, current_engine
     
     try:
+        print(f"🔊 Attempting to speak: {text[:50]}...")
         speech_active = True
-        speech_engine = pyttsx3.init()
-        speech_engine.setProperty('rate', 180)
-        speech_engine.setProperty('volume', 0.9)
+        speech_paused = False
+        
+        # Reinitialize engine each time for thread safety
+        current_engine = pyttsx3.init()
+        current_engine.setProperty('rate', 180)
+        current_engine.setProperty('volume', 0.9)
         
         # Clean text
         clean_text = text
@@ -971,28 +1140,57 @@ def speak_text(text: str, orb: JarvisOrb = None):
         else:
             speak_text_content = clean_text
         
-        speech_engine.say(speak_text_content)
-        speech_engine.runAndWait()
+        if not speak_text_content.strip():
+            print("⚠️ No text to speak after cleaning")
+            speech_active = False
+            current_engine = None
+            return
+        
+        print(f"🔊 Speaking: {speak_text_content[:50]}...")
+        current_engine.say(speak_text_content)
+        current_engine.runAndWait()
+        
+        # Clean up engine
+        try:
+            current_engine.stop()
+            del current_engine
+            current_engine = None
+        except:
+            pass
+            
+        print("✅ Speech completed")
         speech_active = False
+        
+        # Small delay to let audio device release
+        time.sleep(0.2)
         
         if orb:
             orb.set_status("👂 Listening...")
             
     except Exception as e:
+        print(f"❌ TTS Error: {e}")
         logging.error(f"TTS Error: {e}")
+        import traceback
+        traceback.print_exc()
         speech_active = False
+        current_engine = None
         if orb:
             orb.set_status("⚠️ TTS Error")
 
 def stop_speech():
     """Stop the current speech immediately"""
-    global speech_engine, speech_active
+    global speech_active, current_engine, speech_paused
     try:
-        if speech_engine and speech_active:
-            speech_engine.stop()
+        if current_engine and speech_active:
+            current_engine.stop()
             speech_active = False
-    except:
-        pass
+            speech_paused = False
+            current_engine = None
+            print("🔇 Speech stopped")
+    except Exception as e:
+        print(f"Error stopping speech: {e}")
+        speech_active = False
+        speech_paused = False
 
 # ============================================================================
 # MAIN JARVIS ENGINE
@@ -1018,7 +1216,9 @@ def run_jarvis_engine(orb: JarvisOrb):
                     orb.set_status("💤 Standby")
                     speak_text("Returning to standby.", orb)
                 
+                print("👂 Listening for audio...")
                 audio = recognizer.listen(source, timeout=5, phrase_time_limit=8)
+                print("🎤 Audio captured, recognizing...")
                 text = recognizer.recognize_google(audio).lower()
                 logging.info(f"🎤 Detected: {text}")
                 
@@ -1054,10 +1254,10 @@ def run_jarvis_engine(orb: JarvisOrb):
                     logging.info(f"🤖 Response: {ai_response[:100]}...")
                     
                     speak_text(ai_response, orb)
-                    orb.set_status("✅ Ready")
                     
                     conversation_mode = True
                     last_interaction = time.time()
+                    orb.set_status("👂 Listening...")
                 
             except sr.WaitTimeoutError:
                 continue
@@ -1118,10 +1318,12 @@ if __name__ == "__main__":
     print("   • Advanced memory system with conversation history")
     print("   • Hyperrealistic orb interface")
     print("="*70)
-    print(f"📦 Loaded {len(tools)} tools successfully!")
+    print(f"🤖 AI Model: {current_model}")
+    print(f"📦 Available Models: {len(available_models)} ({', '.join(available_models[:3])}{'...' if len(available_models) > 3 else ''})")
+    print(f"🔧 Loaded {len(tools)} tools successfully!")
     print("💡 Say 'Jarvis' followed by your command")
     print("   • Click orb to pause speech")
-    print("   • Right-click for menu")
+    print("   • Right-click for menu → Change AI Model")
     print("   • Say 'keep going' to resume")
     print("="*70 + "\n")
     
