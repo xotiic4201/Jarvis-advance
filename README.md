@@ -1,3 +1,4 @@
+
 # 🚀 JARVIS AI - Advanced Hyperrealistic Assistant
 
 <div align="center">
@@ -6,7 +7,9 @@
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Active-success.svg)]()
+[![Status](https://img.shields.io/badge/Status-Active-success.svg)](https://github.com/xotiic4201/Jarvis-advance)
+[![Windows](https://img.shields.io/badge/Windows-Supported-blue)](https://github.com/xotiic4201/Jarvis-advance/releases)
+[![Release](https://img.shields.io/badge/Download-Installer-green)](https://github.com/xotiic4201/Jarvis-advance/releases)
 
 </div>
 
@@ -14,14 +17,17 @@
 
 JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete system control through natural voice commands. With 60+ powerful tools, JARVIS can automate tasks, manage files, control your computer, and much more - all through simple voice interactions.
 
+**NEW: Now available as a single EXE installer!** No Python required!
+
 ## 🎯 Key Features
 
 ### 🖥️ **Complete System Control**
-- Open/close applications
+- Open/close any Windows application
 - Execute system commands
 - Monitor system resources (CPU, RAM, Disk)
 - Process management (list, kill processes)
 - Battery monitoring
+- Real-time system information
 
 ### 📁 **Advanced File Management**
 - Search files with patterns
@@ -29,6 +35,7 @@ JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete sys
 - Create and extract ZIP archives
 - Copy, move, rename, delete files
 - Get detailed file information
+- Smart file operations
 
 ### ⌨️ **Automation & Control**
 - Type text automatically
@@ -36,6 +43,7 @@ JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete sys
 - Press keyboard shortcuts
 - Window management (minimize, maximize, switch)
 - Lock computer
+- Clipboard automation
 
 ### 📸 **Screenshots & OCR**
 - Capture full screen or specific windows
@@ -43,6 +51,7 @@ JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete sys
 - Annotate screenshots with timestamps
 - Extract text from images (OCR)
 - Read text from specific screen areas
+- Save OCR to text files
 
 ### 🌐 **Network & Connectivity**
 - Get IP addresses (local and public)
@@ -50,88 +59,93 @@ JARVIS AI is an advanced, hyperrealistic AI assistant that provides complete sys
 - List active connections
 - Ping tests
 - ARP scanning
+- Real-time network monitoring
 
 ### 🔊 **Media & Audio Control**
 - Control system volume (set, mute, unmute)
-- Record audio
+- Record audio from microphone
 - Play system sounds
 - Text-to-speech file generation
 - Take pictures with webcam
+- Open URLs in browser
 
 ### 🔐 **Security & Privacy**
-- Lock computer
+- Lock computer instantly
 - Kill suspicious processes
 - Clipboard management
 - System monitoring
+- Local AI processing (no cloud)
 
 ### 🤖 **AI & Memory**
-- Natural conversational AI
+- Natural conversational AI with Ollama
 - Conversation history and memory
 - Session management
 - Context-aware responses
+- Multiple AI model support
 
-## 📦 Installation
+## 🚀 Quick Installation (Windows)
 
-### Prerequisites
+### **Option 1: Easy Installer (Recommended)**
+1. Download `JARVIS_AI_Setup.exe` from [Releases](https://github.com/xotiic4201/Jarvis-advance/releases)
+2. Run the installer
+3. Launch JARVIS from Start Menu or Desktop
+
+### **Option 2: Manual Setup**
+#### Prerequisites
 - Python 3.8 or higher
-- Windows/macOS/Linux
+- Windows 10/11
 - Microphone for voice commands
-- Ollama with qwen2.5:7b model
 
-### Step 1: Clone the Repository
+#### Step 1: Clone the Repository
 ```bash
 git clone https://github.com/xotiic4201/Jarvis-advance.git
+cd Jarvis-advance
 ```
 
-### Step 2: Install Dependencies
+#### Step 2: Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 3: Install Ollama and Model
+#### Step 3: Install Ollama (for AI features)
+1. Download Ollama from https://ollama.ai
+2. Install and run Ollama
+3. Download the model:
 ```bash
-# Install Ollama from https://ollama.ai
-
-# Download the model
 ollama pull qwen2.5:7b
 ```
 
-### Step 4: Install Tesseract (for OCR)
-**Windows:**
+#### Step 4: Install Tesseract (for OCR)
 - Download from: https://github.com/UB-Mannheim/tesseract/wiki
 - Add to PATH
 
-**macOS:**
-```bash
-brew install tesseract
-```
-
-**Linux:**
-```bash
-sudo apt-get install tesseract-ocr
-```
-
-### Step 5: Run JARVIS
+#### Step 5: Run JARVIS
 ```bash
 python main.py
 ```
 
 ## 🎮 Usage
 
-### Voice Commands
+### **First Launch**
+1. Start JARVIS
+2. Say "Jarvis" to activate
+3. Wait for "Online" status
+4. Start giving commands!
 
-#### **General**
-- "Jarvis" - Activate assistant
-- "Hello" - Greet Jarvis
-- "What can you do?" - List capabilities
+### **Voice Commands Examples**
+
+#### **General Commands**
+- "Jarvis, hello" - Start conversation
+- "What can you do?" - See capabilities
 - "Keep going" / "Resume" - Resume speech
+- "Stop speaking" - Pause speech
 
 #### **File Operations**
-- "Find all Python files"
-- "Organize my downloads"
-- "Create a zip of this folder"
-- "Delete file temp.txt"
-- "Rename file to report.pdf"
+- "Find all PDF files"
+- "Organize my downloads folder"
+- "Create a zip of Documents folder"
+- "Delete temp.txt"
+- "Copy report.pdf to Desktop"
 
 #### **System Control**
 - "Open Chrome"
@@ -153,226 +167,175 @@ python main.py
 - "Read the latest screenshot"
 - "Extract text from image.png"
 
-#### **Network**
+#### **Network & Information**
 - "What's my IP address?"
 - "Test network speed"
 - "Show active connections"
-- "Scan network devices"
+- "What time is it in Tokyo?"
 
-#### **Media**
+#### **Media Control**
 - "Set volume to 50"
 - "Mute volume"
 - "Record audio for 10 seconds"
 - "Open youtube.com"
 
-#### **Search & Information**
-- "Search for Python tutorials"
-- "What time is it in London?"
-- "Get weather in Paris"
+## 🛠️ Interface Guide
 
-## 🛠️ Tools List
+### **Hyperrealistic Orb**
+- **Blue Orb**: Ready/Loading
+- **Green Orb**: Listening
+- **Yellow Orb**: Processing
+- **Red Orb**: Error
 
-### Core Tools (60+)
+### **Controls**
+- **Left Click**: Pause/Resume speech
+- **Right Click**: Open settings menu
+- **Drag**: Move orb anywhere on screen
+- **Double Click**: Show system info
 
-**PC Control:**
-- `open_notepad_with_context` - Create notes with context
-- `quick_note` - Quick text notes
-- `list_notes` - View all notes
-- `open_application` - Open any application
-- `close_application` - Close applications
-- `execute_command` - Run system commands
-- `system_info` - System information
-- `list_running_apps` - List processes
+### **Menu Options**
+- **Settings**: Configure voice, AI model, colors
+- **Memory Manager**: View conversation history
+- **Tools Browser**: See all 60+ available tools
+- **System Info**: View system status
+- **Change AI Model**: Switch between Ollama models
+- **Change Color**: Customize orb appearance
 
-**Automation:**
-- `type_text` - Type text automatically
-- `press_key` - Press keyboard shortcuts
-- `click_mouse` - Click at coordinates
-- `move_mouse` - Move cursor
-- `get_mouse_position` - Get cursor position
-- `scroll_screen` - Scroll up/down
-- `copy_to_clipboard` - Copy to clipboard
-- `paste_from_clipboard` - Get clipboard contents
-- `minimize_all_windows` - Show desktop
-- `switch_window` - Alt+Tab
-- `lock_computer` - Lock system
-- `get_screen_size` - Screen resolution
+## 🔧 Building from Source
 
-**Screenshots & OCR:**
-- `take_screenshot` - Capture screen
-- `screenshot_all_monitors` - All monitors
-- `annotate_screenshot` - With timestamp
-- `screenshot_window` - Active window
-- `read_text_from_latest_image` - Read screenshot
-- `read_image_file` - Read any image
-- `ocr_to_file` - Save OCR to text file
-- `read_screen_area` - Specific region
+### **Create EXE (for distribution)**
+```bash
+# Install PyInstaller
+pip install pyinstaller
 
-**File Management:**
-- `search_files` - Find files
-- `organize_files` - Sort by type
-- `create_zip` - Create archive
-- `extract_zip` - Extract archive
-- `delete_file` - Remove file
-- `rename_file` - Rename file
-- `copy_file` - Copy file
-- `get_file_info` - File details
+# Build executable
+pyinstaller --onefile --windowed --icon=icon.ico --name="JARVIS" --add-data="requirements.txt;." --add-data="README.md;." --hidden-import=pyttsx3.drivers --hidden-import=pyttsx3.drivers.sapi5 --hidden-import=speech_recognition --hidden-import=PyQt6 --hidden-import=pyautogui --hidden-import=psutil --hidden-import=mss --hidden-import=langchain --collect-all=pyttsx3 --collect-all=PyQt6 main.py
 
-**Network & System:**
-- `get_network_info` - Network details
-- `network_speed_test` - Speed test
-- `list_connections` - Active connections
-- `monitor_system_resources` - CPU/RAM/Disk
-- `list_processes` - Running processes
-- `kill_process` - Terminate process
-- `get_battery_status` - Battery info
-
-**Media & Audio:**
-- `control_volume` - Volume control
-- `play_sound` - System sounds
-- `open_url` - Open in browser
-- `take_picture` - Webcam capture
-- `record_audio` - Record from mic
-- `text_to_speech_file` - TTS to file
-
-**Utilities:**
-- `get_time` - World time zones
-- `duckduckgo_search_tool` - Web search
-- `matrix_mode` - Matrix effect
-- `arp_scan_terminal` - Network scanning
-
-## 🎨 User Interface
-
-### Hyperrealistic Orb
-- **Animated orb** with pulsing effects
-- **Status indicators** (listening, processing, error)
-- **Color-coded** states
-- **Draggable** interface
-- **Right-click menu** for settings
-
-### Features
-- Click orb to pause speech
-- Right-click for menu
-- Visual status feedback
-- Memory manager interface
-- System information display
-
-## ⚙️ Configuration
-
-### Environment Variables
-Create a `.env` file:
-```env
-# Optional configurations
-OLLAMA_HOST=http://localhost:11434
-TRIGGER_WORD=jarvis
-CONVERSATION_TIMEOUT=30
+# Copy tools folder
+xcopy /E /I /Y tools dist\tools
 ```
 
-### Customization
-Edit `main.py` to customize:
-- `TRIGGER_WORD` - Wake word
-- `CONVERSATION_TIMEOUT` - Conversation timeout
-- LLM model and parameters
-- Voice settings
+### **Create Installer**
+1. Use Inno Setup Compiler
+2. Load `JARVIS_Setup.iss`
+3. Compile to create `JARVIS_AI_Setup.exe`
 
-## 📋 Requirements
+## 📋 System Requirements
 
-### Python Packages
-- `langchain` - AI framework
-- `langchain-ollama` - Ollama integration
-- `PyQt6` - GUI interface
-- `pyttsx3` - Text-to-speech
-- `SpeechRecognition` - Voice recognition
-- `pyautogui` - Automation
-- `pyperclip` - Clipboard
-- `psutil` - System monitoring
-- `requests` - HTTP requests
-- `mss` - Screenshots
-- `pytesseract` - OCR
-- `Pillow` - Image processing
-- `python-dotenv` - Environment variables
-- `duckduckgo-search` - Web search
-- `pytz` - Timezones
-
-### System Requirements
-- **OS**: Windows 10+, macOS 10.14+, or Linux
-- **RAM**: 4GB minimum, 8GB recommended
+### **Minimum**
+- **OS**: Windows 10/11 (64-bit)
+- **CPU**: Intel i3 / AMD Ryzen 3 or better
+- **RAM**: 4GB
 - **Storage**: 2GB free space
-- **Microphone**: Required for voice commands
-- **Internet**: Required for AI model and web features
+- **Microphone**: Required
 
-## 🔧 Troubleshooting
+### **Recommended**
+- **OS**: Windows 11
+- **CPU**: Intel i5 / AMD Ryzen 5 or better
+- **RAM**: 8GB+
+- **GPU**: Dedicated GPU for better AI performance
+- **Storage**: 5GB+ for AI models
 
-### Common Issues
+## 🐛 Troubleshooting
 
-**Voice recognition not working:**
-```bash
-# Test microphone
-python -c "import speech_recognition as sr; print(sr.Microphone.list_microphone_names())"
+### **Common Issues & Solutions**
+
+**Voice not working:**
+```
+1. Check microphone permissions
+2. Test with: python -c "import speech_recognition as sr; print(sr.Microphone.list_microphone_names())"
+3. Ensure microphone is set as default device
 ```
 
-**Ollama connection error:**
-```bash
-# Check Ollama is running
-ollama list
-
-# Restart Ollama
-ollama serve
+**Ollama errors:**
+```
+1. Verify Ollama is running: ollama list
+2. Restart Ollama: ollama serve
+3. Pull model: ollama pull qwen2.5:7b
 ```
 
 **OCR not working:**
-- Ensure Tesseract is installed and in PATH
-- Test: `tesseract --version`
-
-**Import errors:**
-```bash
-# Reinstall dependencies
-pip install -r requirements.txt --force-reinstall
+```
+1. Install Tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
+2. Add to System PATH
+3. Restart computer
 ```
 
-## 🤝 Contributing
+**Import errors:**
+```
+1. Update pip: python -m pip install --upgrade pip
+2. Reinstall: pip install -r requirements.txt --force-reinstall
+3. Check Python version (3.8+ required)
+```
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+**GUI not showing:**
+```
+1. Install VC++ Redistributable: https://aka.ms/vs/17/release/vc_redist.x64.exe
+2. Reinstall PyQt6: pip install --force-reinstall PyQt6
+```
+
+## 📁 Project Structure
+
+```
+Jarvis-advance/
+├── main.py                 # Main application
+├── requirements.txt        # Python dependencies
+├── setup.py               # Setup script
+├── README.md              # This file
+├── icon.ico               # Application icon
+├── LICENSE.txt            # License file
+├── tools/                 # 60+ tools
+│   ├── pc_control.py     # PC control tools
+│   ├── app_launcher.py   # Application launcher
+│   ├── automation_tools.py # Automation
+│   ├── file_tools.py     # File management
+│   ├── network_tools.py  # Network tools
+│   ├── screenshot.py     # Screenshots
+│   ├── media_tools.py    # Media control
+│   ├── OCR.py           # OCR functionality
+│   └── ...               # More tools
+├── dist/                  # Built executables
+└── Output/               # Installer output
+```
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## 🤝 Contributing
 
-- LangChain for AI framework
-- Ollama for local LLM
-- PyQt6 for GUI
-- All open-source contributors
+We welcome contributions! Here's how:
 
-## 📞 Support
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/AmazingFeature`
+3. **Commit** changes: `git commit -m 'Add AmazingFeature'`
+4. **Push** to branch: `git push origin feature/AmazingFeature`
+5. **Open** a Pull Request
 
-For issues and questions:
-- Create an issue on GitHub
-- Check existing documentation
-- Review troubleshooting section
+## 🌟 Star History
 
-## 🎯 Roadmap
+[![Star History Chart](https://api.star-history.com/svg?repos=xotiic4201/Jarvis-advance&type=Date)](https://star-history.com/#xotiic4201/Jarvis-advance&Date)
 
-- [ ] Web interface
-- [ ] Mobile app integration
-- [ ] Cloud synchronization
-- [ ] Plugin system
-- [ ] Multi-language support
-- [ ] Voice cloning
-- [ ] Custom wake words
-- [ ] Advanced automation macros
+## 📞 Support & Community
+
+- **Issues**: [GitHub Issues](https://github.com/xotiic4201/Jarvis-advance/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/xotiic4201/Jarvis-advance/discussions)
+- **Wiki**: [Documentation](https://github.com/xotiic4201/Jarvis-advance/wiki)
+
+## 🚀 Quick Start Video
+
+[![Watch the video](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://youtube.com/YOUR_VIDEO_LINK)
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by the JARVIS AI Team**
+### **Made with ❤️ by xotiic**
 
-⭐ Star us on GitHub!
+**⭐ Star this repo if you find it useful!**
+
+[![GitHub stars](https://img.shields.io/github/stars/xotiic4201/Jarvis-advance?style=social)](https://github.com/xotiic4201/Jarvis-advance/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/xotiic4201/Jarvis-advance?style=social)](https://github.com/xotiic4201/Jarvis-advance/network/members)
+[![GitHub watchers](https://img.shields.io/github/watchers/xotiic4201/Jarvis-advance?style=social)](https://github.com/xotiic4201/Jarvis-advance/watchers)
 
 </div>
